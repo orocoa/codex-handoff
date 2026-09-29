@@ -1,0 +1,6 @@
+interface:
+  display_name: "Codex 任务交接"
+  short_description: "一次调用在同一 Local 项目新建对话并续接，无需 hook"
+  default_prompt: "$handoff"
+policy:
+  allow_implicit_invocation: false
