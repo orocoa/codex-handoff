@@ -13,6 +13,12 @@
 
 I shaped the requirements and spent **a month using and debugging Handoff intensively**. **GPT-6 Astra, with the Ultra reasoning setting in Codex, and multiple Astra agents** worked together on the final alpha.17 implementation: code review, fixes, performance optimization, regression checks, and independent cross-review. That is why I call this project **“众神指导” — “Guided by the gods.”**
 
+## Why another handoff skill?
+
+I built this for a very simple reason: **I wanted to be lazy about switching chats.** I didn't want to copy a summary, paste a prompt into a new chat, or work through a bunch of options. With the skill installed in a supported Local project, I wanted the routine to be simple: **type `$handoff`, then keep going.**
+
+Yes, this overlaps with other handoff projects. I made a separate one because I wanted this exact small workflow for myself: **one command, no copy-paste, as little fuss as possible.** That's the whole motivation. See [related projects](docs/related-work.md).
+
 ## What is Handoff?
 
 An explicit handoff skill for the **Codex desktop app**. When a long conversation still has unfinished work, send `$handoff`: save the essential context, create a fresh chat in the same verified saved Local project, and have it continue the work you already authorized.
