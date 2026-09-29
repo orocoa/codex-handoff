@@ -4,6 +4,17 @@
 
 [English](README.md) · [更新记录](CHANGELOG.md) · [同类项目对照](docs/related-work.md) · [性能测量](docs/benchmarks.md)
 
+## 众神指导
+
+### GPT-6 Astra Ultra × 多个 Astra Agent
+
+> **“你可以不相信我的 coding 能力，但不能否定 Astra 的实力。”**
+> —— orocoa，Handoff 项目作者
+
+我负责提出需求，并且已经**高强度使用、持续 debug 一个月**。最终 alpha.17 项目实现由 **GPT-6 Astra（Codex 中的 Ultra 推理设置）与多个 Astra agent** 协同完善，覆盖代码审查、问题修复、性能优化、回归验证与独立交叉评审。这就是我把这个项目称为**“众神指导”**的原因。
+
+## Handoff 是什么？
+
 面向 **Codex 桌面端**的显式任务交接 skill。对话已经很长，但手上的事情还没做完？发送 `$handoff`，保存必要上下文，在同一个已核实的保存 Local 项目中新建对话，让它继续已有授权的工作。
 
 文件留在原处。无需复制交接提示词，也无需再说一次“继续”。核心流程不需要 hook 或常驻服务。

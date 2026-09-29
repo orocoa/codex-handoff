@@ -4,6 +4,17 @@
 
 [简体中文](README.zh-CN.md) · [What's new](CHANGELOG.md) · [Related work](docs/related-work.md) · [Measured performance](docs/benchmarks.md)
 
+## 众神指导 · Guided by the gods
+
+### GPT-6 Astra Ultra × Multiple Astra Agents
+
+> **“You can doubt my coding skills. Just don't underestimate Astra's.”**
+> — orocoa, creator of Handoff
+
+I shaped the requirements and spent **a month using and debugging Handoff intensively**. **GPT-6 Astra, with the Ultra reasoning setting in Codex, and multiple Astra agents** worked together on the final alpha.17 implementation: code review, fixes, performance optimization, regression checks, and independent cross-review. That is why I call this project **“众神指导” — “Guided by the gods.”**
+
+## What is Handoff?
+
 An explicit handoff skill for the **Codex desktop app**. When a long conversation still has unfinished work, send `$handoff`: save the essential context, create a fresh chat in the same verified saved Local project, and have it continue the work you already authorized.
 
 Your files stay in place. There is no handoff prompt to copy and no second “continue” message to send. The core workflow needs no hook or always-on service.
