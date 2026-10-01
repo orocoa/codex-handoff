@@ -2,7 +2,7 @@
 
 The normal native path uses `prepare_handoff.py` from SKILL.md; this page is only for a difficult summarization/evidence decision or a manual fallback packet. Do not load it on every switch.
 
-The summary is a minimum sufficient continuation, normally 300–800 Chinese characters or a similarly short passage in the user's language. This is a drafting target, not truncation: retain critical decisions, identity constraints, permissions, unresolved choices and material evidence even if it needs more space. Link existing source reports instead of recreating them. Preserve every original file.
+The summary is a minimum sufficient continuation, normally 300–800 Chinese characters or a similarly short passage in the user's language. This is a drafting target, not truncation: retain critical decisions, identity constraints, permissions, unresolved choices and material evidence even if it needs more space. Link existing source reports only when the next authorized action depends on them. Preserve every original file. Omit completed PDF contents, summaries and delivery links by default; keep necessary PDF information only when unfinished authorized work requires it or the user explicitly requests it. Handoff itself does not call for generating, reading, previewing or presenting a PDF.
 
 Include:
 
@@ -26,4 +26,4 @@ The helper generates a short prompt pointing to the packet. Keep it unchanged un
 2. Give a brief progress update that the context was received and name the concrete next action, then immediately continue existing authorized work in the same turn. This is a phase change, not a final answer requiring another user message.
 3. Reuse existing evidence, read detailed files as needed, and respect checks before dependent operations. Do not read handoff implementation, scan full history, or generate an intake report as a routine step.
 
-`continue_now` does not authorize extra research, specification documents, installation, modeling or other new deliverables beyond the existing task. If a lengthy deliverable was already authorized, it may continue; make clear that this is substantive work after receipt. `wait_for_user` requires a genuine missing input or explicit user instruction. `complete` confirms finished work without inventing a follow-up goal. None of these states authorizes recursive handoff.
+`continue_now` does not authorize extra research, specification documents, installation, modeling or other new deliverables beyond the existing task. If a lengthy deliverable was already authorized, it may continue; make clear that this is substantive work after receipt. `wait_for_user` requires a genuine missing input or explicit user instruction. `complete` only confirms that context was received and no work remains; do not re-list, re-verify or present completed deliverables. A PDF mentioned in an older packet does not itself require opening or presenting it. None of these states authorizes recursive handoff.
