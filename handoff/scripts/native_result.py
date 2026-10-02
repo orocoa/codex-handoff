@@ -71,11 +71,51 @@ def classify(result):
     return uncertain
 
 
+def failure_detail(result):
+    """Keep a bounded excerpt of the observed error, without guessing its cause."""
+    if not isinstance(result, dict):
+        return result[:1600] if isinstance(result, str) else None
+    payloads = [result]
+    messages = []
+    if isinstance(result.get('structuredContent'), dict):
+        payloads.append(result['structuredContent'])
+    blocks = result.get('content', [])
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict) or block.get('type') != 'text':
+            continue
+        message = block.get('text')
+        if not isinstance(message, str) or not message.strip():
+            continue
+        try:
+            payload = json.loads(message)
+        except ValueError:
+            messages.append(message.strip())
+            continue
+        if isinstance(payload, dict):
+            payloads.append(payload)
+        elif isinstance(payload, str):
+            messages.append(payload)
+    for payload in payloads:
+        error = payload.get('error')
+        if isinstance(error, dict):
+            error = error.get('message')
+        if isinstance(error, str) and error.strip():
+            messages.append(error.strip())
+        message = payload.get('message')
+        if isinstance(message, str) and message.strip():
+            messages.append(message.strip())
+    return '\n'.join(dict.fromkeys(messages))[:1600] or None
+
+
 def record(receipt, attempt_id, result):
     decision = classify(result)
+    detail = failure_detail(result) if decision['outcome'] in ('uncertain', 'not-created') else None
+    note = decision.get('note')
+    if detail and detail not in (note or ''):
+        note = (note or '') + ' Observed native response: ' + detail
     state = dispatch.finish(Path(receipt), attempt_id, decision['outcome'],
                             thread_id=decision.get('thread_id'), client_id=decision.get('client_id'),
-                            host_id=decision.get('host_id'), note=decision.get('note'))
+                            host_id=decision.get('host_id'), note=note)
     guidance = {
         'approval_policy_conflict': (
             'Keep the packet, invocation and receipt. Full Access is not required: use an interactive '
@@ -87,7 +127,8 @@ def record(receipt, attempt_id, result):
         'queued': 'Report queued; clientThreadId is not a ready thread ID. Recover this same operation.',
     }[decision['reason']]
     return {'dispatch_state': state['dispatch_state'], 'destination': state.get('destination'),
-            'reason': decision['reason'], 'guidance': guidance, 'may_create': False}
+            'reason': decision['reason'], 'guidance': guidance, 'may_create': False,
+            **({'observed_error': detail} if detail else {})}
 
 
 def main():

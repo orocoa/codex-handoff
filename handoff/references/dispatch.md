@@ -35,6 +35,8 @@ The guarantee is local and conditional: cooperating callers using the same recei
 
 The fast path can pass the actual `create_thread` MCP result as JSON stdin to `native_result.py --receipt ... --attempt-id ...`. The helper calls this receipt protocol, not an external creation API. It recognizes ready and queued identities and the exact known pre-execution `approval policy is never` rejection. An error with any returned identity, conflicting payloads or an unknown failure stays `uncertain`; it never guesses non-creation from a missing ID. A failure to record a result does not permit a new creation call.
 
+For failed or uncertain results, the helper retains a bounded excerpt of the returned error in the attempt note and returns it as `observed_error` when available. This is observed evidence, not a diagnosis: redact sensitive details in the user-facing report, and state that the root cause is unknown when the tool does not explain it. A retained error message does not authorize another creation attempt.
+
 The known policy conflict is `failed`, not an automatic-review denial. Recovery needs a verified permission change plus a new claim under the same saved request. An unresolved attempt or existing destination cannot be replaced just because settings changed. See [setup.md](setup.md#permissions-and-recovery) for supported restricted modes and their limitations.
 
 ## App Server runtime state

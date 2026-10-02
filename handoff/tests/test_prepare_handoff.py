@@ -49,29 +49,30 @@ class FastPreparation(unittest.TestCase):
         catalog = Path(first['packet']).parent / 'history' / 'catalog.json'
         self.assertEqual(len(json.loads(catalog.read_text())['entries']), 1)
 
-    def test_noninteractive_preflight_saves_without_claim_and_recovers_same_request(self):
-        blocked = prepare_handoff.prepare(self.plan, approval_policy='never')
-        self.assertFalse(blocked['may_create'])
-        self.assertEqual(blocked['dispatch_state'], 'prepared')
-        self.assertIsNone(blocked['attempt_id'])
-        self.assertEqual(blocked['blocker'], 'effective_approval_policy_never')
-        original = Path(blocked['packet']).read_bytes()
-        again = prepare_handoff.prepare(self.plan, approval_policy='never')
-        self.assertIsNone(again['attempt_id'])
-        allowed = prepare_handoff.prepare(self.plan, approval_policy='on-request')
-        self.assertTrue(allowed['may_create'])
-        self.assertEqual(allowed['packet'], blocked['packet'])
-        self.assertEqual(Path(allowed['packet']).read_bytes(), original)
-        self.assertFalse(prepare_handoff.prepare(self.plan, approval_policy='on-request')['may_create'])
+    def test_saved_unclaimed_invocation_dispatches_once_without_rewriting_context(self):
+        # Old permission preflight saved this receipt without a creation claim.
+        with patch.object(dispatch, 'claim', side_effect=lambda receipt:
+                          {'may_create': False, 'receipt': dispatch.read(receipt)}):
+            saved = prepare_handoff.prepare(self.plan)
+        frozen = Path(saved['packet']).with_suffix('.request.json').read_bytes()
+        original_packet = Path(saved['packet']).read_bytes()
+        first = prepare_handoff.prepare(self.plan)
+        self.assertTrue(first['may_create'])
+        self.assertIsNotNone(first['attempt_id'])
+        self.assertEqual(first['packet'], saved['packet'])
+        self.assertEqual(Path(first['packet']).read_bytes(), original_packet)
+        self.assertEqual(Path(first['packet']).with_suffix('.request.json').read_bytes(), frozen)
+        retry = prepare_handoff.prepare(self.plan)
+        self.assertFalse(retry['may_create'])
+        self.assertEqual(retry['attempt_id'], first['attempt_id'])
 
-    def test_noninteractive_preflight_does_not_change_an_existing_destination(self):
-        first = prepare_handoff.prepare(self.plan, approval_policy='on-request')
+    def test_preparation_does_not_change_an_existing_destination(self):
+        first = prepare_handoff.prepare(self.plan)
         dispatch.finish(Path(first['receipt']), first['attempt_id'], 'created', thread_id='existing-successor')
-        again = prepare_handoff.prepare(self.plan, approval_policy='never')
+        again = prepare_handoff.prepare(self.plan)
         self.assertFalse(again['may_create'])
         self.assertEqual(again['dispatch_state'], 'created')
         self.assertEqual(again['destination']['threadId'], 'existing-successor')
-        self.assertNotIn('blocker', again)
 
     def test_changed_input_does_not_replace_claimed_packet(self):
         first = prepare_handoff.prepare(self.plan)

@@ -10,6 +10,8 @@ This skill creates a fresh conversation in the same saved Local project director
 4. For native creation set `target: {type: project, projectId: <verified ID>, environment: {type: local}}`. For App Server creation pass the verified `projectId` and canonical on-device `cwd` to `thread/start`; verify both in its response or `thread/read`. Do not add branch, starting-state, worktree or projectless options. Do not create a fork.
 5. After attempting location recovery, if the Project is still missing, ambiguous or does not contain the current implementation, save useful records and report the specific Local prerequisite or mismatch. Do not silently switch to older project files, invent an ID or create an alternate directory. This is an actual scope problem, not a reason to routinely ask the user to choose between modes.
 
+An unregistered projectless directory has no saved Project ID for this workflow. Explain the missing registration once and ask only for the location decision needed to continue; do not describe it as an approval rejection. If the user chooses to register the current directory, retain that choice and the original handoff request. After registration is confirmed in fresh project records, continue that request without another `$handoff`. Paths quoted in attachments or historical conversations do not establish the current source Project or authorize moving the handoff there.
+
 ## Recover an updated directory
 
 An earlier packet, source environment or failed handoff may remember a directory that no longer exists. Treat that as stale location evidence, not proof that the project is unavailable.

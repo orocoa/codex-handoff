@@ -69,6 +69,29 @@ class NativeResult(unittest.TestCase):
                     'content': [{'type': 'text', 'text': native_result.APPROVAL_CONFLICT}]}
         self.assertEqual(self.finish(response)['dispatch_state'], 'uncertain')
 
+    def test_review_denial_keeps_observed_reason_without_authorizing_retry(self):
+        message = 'Auto-review denied this action: destination is outside the allowed project'
+        result = self.finish({'isError': True, 'content': [{'type': 'text', 'text': message}]})
+        self.assertEqual(result['dispatch_state'], 'uncertain')
+        self.assertEqual(result['observed_error'], message)
+        state = dispatch.read(Path(self.prepared['receipt']))
+        self.assertIn(message, state['resolution_note'])
+        self.assertFalse(prepare_handoff.prepare(self.plan)['may_create'])
+
+    def test_structured_error_keeps_message_without_calling_it_a_policy_conflict(self):
+        response = {'isError': True, 'structuredContent': {'error': {'message': 'Service unavailable'}}}
+        result = self.finish(response)
+        self.assertEqual(result['reason'], 'creation_result_uncertain')
+        self.assertEqual(result['observed_error'], 'Service unavailable')
+        self.assertFalse(result['may_create'])
+
+    def test_ready_destination_does_not_label_success_text_as_an_error(self):
+        response = {'structuredContent': {'threadId': 'ready', 'hostId': 'local'},
+                    'content': [{'type': 'text', 'text': 'Action completed.'}]}
+        result = self.finish(response)
+        self.assertEqual(result['dispatch_state'], 'created')
+        self.assertNotIn('observed_error', result)
+
     def test_policy_conflict_mixed_with_another_error_is_uncertain(self):
         response = {'isError': True, 'content': [
             {'type': 'text', 'text': native_result.APPROVAL_CONFLICT},

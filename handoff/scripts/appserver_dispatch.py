@@ -53,7 +53,7 @@ def source_context(path, record):
     sandbox = {'type': modes[mode]}
     sandbox.update({fields[k]: v for k, v in raw.items() if k != 'type'})
     approval = context.get('approval_policy')
-    require_interactive_policy(approval)
+    require_supported_policy(approval)
     model, effort = context.get('model'), context.get('effort')
     provider = identity.get('model_provider')
     reviewer = context.get('approvals_reviewer')
@@ -70,16 +70,17 @@ def source_context(path, record):
             'runtimeWorkspaceRoots': roots}
 
 
-def require_interactive_policy(approval):
-    if approval != 'on-request':
-        raise ValueError('App Server handoff requires effective approval_policy=on-request; '
-                         'do not copy never or retired policies into a successor. '
-                         'Select interactive permissions before recovery; unsupported granular policies need native dispatch.')
+def require_supported_policy(approval):
+    # Validate the adapter's supported API shapes, not whether approval is enabled.
+    if approval not in ('on-request', 'never'):
+        raise ValueError('Unsupported source approval policy for this adapter; '
+                         'preserve it through native desktop dispatch instead of changing permissions. '
+                         'Only the documented scalar on-request and never policies are supported here.')
 
 
 def start_settings(context):
     """Preserve observed settings for this new thread; never edit global config."""
-    require_interactive_policy(context.get('approvalPolicy'))
+    require_supported_policy(context.get('approvalPolicy'))
     config = {'model_reasoning_effort': context['effort']}
     if context['sandboxMode'] == 'workspace-write':
         fields = {'networkAccess': 'network_access', 'writableRoots': 'writable_roots',

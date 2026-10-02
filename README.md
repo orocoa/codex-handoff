@@ -93,7 +93,11 @@ The skill does not change permission settings or use another interface to bypass
 
 See the [mode matrix, configuration and recovery instructions](handoff/references/setup.md#permissions-and-recovery). Local checks cover workspace-only preparation and read-only rejection; these are not live restricted-mode MCP handoff tests. Host policies and automatic review can still block creation.
 
-Native preflight saves without a creation claim when the observed policy is `never`, and resumes the same request after switching. Interactive handoff uses `on-request`; the App Server fallback rejects `never` before creating a successor. The current working-tree checks pass 146 local tests. These fixes are on main; the alpha.17 release archive predates them.
+The native workflow has no skill-level approval preflight: save, claim once, call the native tool, and confirm startup. Preparation no longer takes `--approval-policy` or `--sandbox-mode`; remove those flags (or Python keyword arguments) from older callers. The host still enforces actual tool permissions. Failures report the stopped stage, returned reason, creation certainty and recovery step; a timeout is not proof of non-creation. Old unclaimed receipts reuse their frozen request. The current source passes 149 local tests; the alpha.17 release archive predates these updates.
+
+The optional App Server adapter also preserves the observed supported policy (`on-request` or `never`) instead of requiring a permission switch. It still verifies the model, provider and access boundaries. Failed or uncertain native results retain the actual returned error in the receipt.
+
+Skill maintenance, diagnosis, tests and repository synchronization do not initiate a handoff, including when the skill is attached to that request. An unregistered projectless directory needs a verified saved Local project; retain the original request while the user registers their chosen directory.
 
 ## Use it
 

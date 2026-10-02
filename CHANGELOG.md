@@ -3,12 +3,14 @@
 ## Unreleased — 2026-10-02
 
 - Support interactive handoff with workspace-only writes and manual or automatic MCP review; Full Access is optional.
-- Preflight the observed scalar policy before claiming: save under `never` without a creation attempt, then recover the same request under `on-request`.
+- Remove the native skill's policy preflight and its `--approval-policy` / `--sandbox-mode` preparation inputs. Save, claim once, invoke native creation and confirm startup without a second user handoff prompt. / 移除原生流程的独立审批预检与准备参数，直接完成保存、一次认领、创建和启动确认。
 - Record native ready/queued results and the known pre-execution approval-policy conflict. Preserve one invocation; ambiguous results cannot be recreated.
-- Reject `never` and retired approval policies in the App Server adapter before server startup or successor creation; retain model, reviewer and sandbox checks.
+- Remove the App Server adapter's independent rejection of `never`; preserve supported observed scalar policies (`on-request` or `never`) in both thread creation and turn startup, while retaining model, reviewer and sandbox checks. Unsupported policy shapes still require native dispatch. / 备用路径也移除对 `never` 的独立拦截，保留来源策略，不改变权限。
 - Explain effective-session versus saved configuration, read-only limits, permission recovery and unchanged alpha.17 release archives in both READMEs.
 - Synchronize the existing local minimal completed-task receiver and PDF context handling.
-- Validation: 146 local regressions, skill schema validation, real workspace-only preparation and read-only write rejection. Restricted-mode live MCP handoff remains untested.
+- Preserve old unclaimed frozen requests and one-attempt recovery; retain a bounded actual error excerpt in native result receipts. / 兼容旧版未认领请求，保留防重复机制；收据保留工具实际报错，失败须说明具体阶段与创建状态。
+- Keep maintenance requests separate from live handoff, even with an attached skill; retain the original request while an unregistered directory is registered as a Local project. / 维护请求不误触发创建；缺少项目登记时说明真实原因并保留原交接意图。
+- Validation: 149 local regressions pass, including legacy prepared-receipt recovery, actual error retention, and simulated `never` creation/startup without approval responses. Skill schema validation passes. The previously recorded native Local creation/startup observation is historical; this maintenance run created no live successor. / 149 项本地测试及技能格式校验通过，覆盖旧收据恢复、实际错误保留及 `never` 模拟创建与启动；本次维护不创建真实接收对话。
 
 ## 0.1.0-alpha.17 — 2026-09-29
 
