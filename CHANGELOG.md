@@ -1,5 +1,15 @@
 # Changelog · 更新记录
 
+## Unreleased — 2026-10-02
+
+- Support interactive handoff with workspace-only writes and manual or automatic MCP review; Full Access is optional.
+- Preflight the observed scalar policy before claiming: save under `never` without a creation attempt, then recover the same request under `on-request`.
+- Record native ready/queued results and the known pre-execution approval-policy conflict. Preserve one invocation; ambiguous results cannot be recreated.
+- Reject `never` and retired approval policies in the App Server adapter before server startup or successor creation; retain model, reviewer and sandbox checks.
+- Explain effective-session versus saved configuration, read-only limits, permission recovery and unchanged alpha.17 release archives in both READMEs.
+- Synchronize the existing local minimal completed-task receiver and PDF context handling.
+- Validation: 146 local regressions, skill schema validation, real workspace-only preparation and read-only write rejection. Restricted-mode live MCP handoff remains untested.
+
 ## 0.1.0-alpha.17 — 2026-09-29
 
 This release improves local project routing, retry recovery, and the cost of repeated preparation. The installed release passed **133 tests**, including storage, concurrency, routing, protocol simulations, and cache invalidation. Live model startup and complete desktop handoffs were not benchmarked in this release audit.

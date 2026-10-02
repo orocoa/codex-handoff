@@ -94,7 +94,7 @@ class DispatchSafety(unittest.TestCase):
         policy = {'type': 'workspace-write', 'network_access': False, 'writable_roots': [str(root)],
                   'exclude_tmpdir_env_var': True, 'exclude_slash_tmp': True} if workspace else {'type': 'danger-full-access'}
         context = {'cwd': str(source_workspace), 'model': 'observed-source-model', 'effort': 'high',
-                   'approval_policy': 'on-request' if workspace else 'never',
+                   'approval_policy': 'on-request',
                    'approvals_reviewer': 'user', 'sandbox_policy': policy, 'workspace_roots': [str(root)]}
         source.write_text(json.dumps({'type': 'session_meta', 'payload': {
                               'id': 'source-test', 'model_provider': 'observed-provider'}}) + '\n' +
@@ -148,6 +148,25 @@ class DispatchSafety(unittest.TestCase):
         self.assertEqual(turn['sandboxPolicy'], {'type': 'workspaceWrite', 'networkAccess': False,
                          'writableRoots': [str(root)], 'excludeTmpdirEnvVar': True, 'excludeSlashTmp': True})
         self.assertTrue(json.loads(runner.runtime_path(receipt, attempt).read_text())['writerReleased'])
+
+    def test_never_is_rejected_before_any_server_or_successor(self):
+        root, receipt, attempt, command, env = self.fixture('complete', workspace=True)
+        source = root / 'source.jsonl'
+        events = [json.loads(line) for line in source.read_text().splitlines()]
+        events[-1]['payload']['approval_policy'] = 'never'
+        source.write_text(''.join(json.dumps(event) + '\n' for event in events))
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requires effective approval_policy=on-request', result.stderr)
+        self.assertFalse((root / 'requests.jsonl').exists())
+        self.assertIsNone(dispatch.read(receipt)['destination'])
+
+    def test_start_settings_does_not_emit_never_or_retired_policy(self):
+        root, receipt, attempt, command, env = self.fixture('complete', workspace=True)
+        context = runner.source_context(root / 'source.jsonl', dispatch.read(receipt))
+        for policy in ('never', 'untrusted', None):
+            with self.subTest(policy=policy), self.assertRaisesRegex(ValueError, 'on-request'):
+                runner.start_settings(dict(context, approvalPolicy=policy))
 
     def test_nested_source_keeps_source_identity_and_uses_claimed_destination(self):
         root, receipt, attempt, command, env = self.fixture('complete', workspace=True, nested_source=True)

@@ -96,7 +96,7 @@ for line in sys.stdin:
                               'id': 'source-test', 'model_provider': 'observed-provider'}}) + '\n' +
                           json.dumps({'type': 'turn_context', 'payload': {
                               'cwd': str(root), 'model': 'source-model', 'effort': 'high',
-                              'approval_policy': 'never', 'approvals_reviewer': 'user',
+                              'approval_policy': 'on-request', 'approvals_reviewer': 'user',
                               'sandbox_policy': {'type': 'danger-full-access'}, 'workspace_roots': []}}) + '\n')
         count = root / 'count.txt'
         env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ.get('PATH', ''),

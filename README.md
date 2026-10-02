@@ -81,6 +81,20 @@ PY
 
 Keep the cloned directory in place while using that link. For an existing installation under `~/.codex/skills` or a custom location, update that installation after inspection rather than adding a second skill with the same name. If the skill does not appear, refresh discovery or restart Codex. [Official skill discovery guidance](https://learn.chatgpt.com/docs/build-skills).
 
+## Permissions: Full Access is optional
+
+Handoff can use **Ask for approval** or **Approve for me / Auto-review** with a writable Local workspace. Full Access is not required. Filesystem access and approval for the native task tools are separate controls.
+
+- `workspace-write` + `on-request`: save in the project and use the host's normal manual or automatic review when a tool requires approval.
+- `workspace-write` + `never`: local preparation can work, but a tool requiring approval is rejected. `never` does not mean “approve everything.”
+- `read-only`: the full workflow needs scoped permission to write the packet/history/receipt and to invoke the task tools.
+
+The skill does not change permission settings or use another interface to bypass a rejection. Its native-result helper records a known pre-execution approval conflict without losing the packet or enabling an immediate retry. After an effective permission change, recovery reuses the saved request and receipt; ambiguous results cannot be recreated.
+
+See the [mode matrix, configuration and recovery instructions](handoff/references/setup.md#permissions-and-recovery). Local checks cover workspace-only preparation and read-only rejection; these are not live restricted-mode MCP handoff tests. Host policies and automatic review can still block creation.
+
+Native preflight saves without a creation claim when the observed policy is `never`, and resumes the same request after switching. Interactive handoff uses `on-request`; the App Server fallback rejects `never` before creating a successor. The current working-tree checks pass 146 local tests. These fixes are on main; the alpha.17 release archive predates them.
+
 ## Use it
 
 1. Open a saved **Local** project in Codex desktop and work normally.

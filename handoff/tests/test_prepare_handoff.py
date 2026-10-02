@@ -49,6 +49,30 @@ class FastPreparation(unittest.TestCase):
         catalog = Path(first['packet']).parent / 'history' / 'catalog.json'
         self.assertEqual(len(json.loads(catalog.read_text())['entries']), 1)
 
+    def test_noninteractive_preflight_saves_without_claim_and_recovers_same_request(self):
+        blocked = prepare_handoff.prepare(self.plan, approval_policy='never')
+        self.assertFalse(blocked['may_create'])
+        self.assertEqual(blocked['dispatch_state'], 'prepared')
+        self.assertIsNone(blocked['attempt_id'])
+        self.assertEqual(blocked['blocker'], 'effective_approval_policy_never')
+        original = Path(blocked['packet']).read_bytes()
+        again = prepare_handoff.prepare(self.plan, approval_policy='never')
+        self.assertIsNone(again['attempt_id'])
+        allowed = prepare_handoff.prepare(self.plan, approval_policy='on-request')
+        self.assertTrue(allowed['may_create'])
+        self.assertEqual(allowed['packet'], blocked['packet'])
+        self.assertEqual(Path(allowed['packet']).read_bytes(), original)
+        self.assertFalse(prepare_handoff.prepare(self.plan, approval_policy='on-request')['may_create'])
+
+    def test_noninteractive_preflight_does_not_change_an_existing_destination(self):
+        first = prepare_handoff.prepare(self.plan, approval_policy='on-request')
+        dispatch.finish(Path(first['receipt']), first['attempt_id'], 'created', thread_id='existing-successor')
+        again = prepare_handoff.prepare(self.plan, approval_policy='never')
+        self.assertFalse(again['may_create'])
+        self.assertEqual(again['dispatch_state'], 'created')
+        self.assertEqual(again['destination']['threadId'], 'existing-successor')
+        self.assertNotIn('blocker', again)
+
     def test_changed_input_does_not_replace_claimed_packet(self):
         first = prepare_handoff.prepare(self.plan)
         original = Path(first['packet']).read_bytes()

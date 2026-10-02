@@ -53,8 +53,7 @@ def source_context(path, record):
     sandbox = {'type': modes[mode]}
     sandbox.update({fields[k]: v for k, v in raw.items() if k != 'type'})
     approval = context.get('approval_policy')
-    if not isinstance(approval, str) or approval not in ('never', 'on-request', 'untrusted'):
-        raise ValueError('Unsupported source approval policy; use native desktop dispatch')
+    require_interactive_policy(approval)
     model, effort = context.get('model'), context.get('effort')
     provider = identity.get('model_provider')
     reviewer = context.get('approvals_reviewer')
@@ -71,8 +70,16 @@ def source_context(path, record):
             'runtimeWorkspaceRoots': roots}
 
 
+def require_interactive_policy(approval):
+    if approval != 'on-request':
+        raise ValueError('App Server handoff requires effective approval_policy=on-request; '
+                         'do not copy never or retired policies into a successor. '
+                         'Select interactive permissions before recovery; unsupported granular policies need native dispatch.')
+
+
 def start_settings(context):
     """Preserve observed settings for this new thread; never edit global config."""
+    require_interactive_policy(context.get('approvalPolicy'))
     config = {'model_reasoning_effort': context['effort']}
     if context['sandboxMode'] == 'workspace-write':
         fields = {'networkAccess': 'network_access', 'writableRoots': 'writable_roots',
@@ -365,9 +372,12 @@ def main():
         parser.error('receiver prompt must contain the unique packet filename')
     if args.startup_timeout < 1:
         parser.error('startup-timeout must be positive')
-    context = source_context(args.source_rollout, record)
-    settings = start_settings(context)
-    verify_destination_permissions(context, record['source_workspace'], args.cwd)
+    try:
+        context = source_context(args.source_rollout, record)
+        settings = start_settings(context)
+        verify_destination_permissions(context, record['source_workspace'], args.cwd)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     if args.detach:
         raise SystemExit(start_detached(args, receipt))
 

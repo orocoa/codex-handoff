@@ -31,6 +31,12 @@ Use `show --receipt <receipt.json>` to inspect state. Corrupt/older-schema recei
 
 The guarantee is local and conditional: cooperating callers using the same receipt get one claim per unresolved attempt. There is no transaction spanning the file and Codex's external task creation. If creation succeeds but saving its result fails, the earlier dispatching state prevents blind retries. The receipt is not a substitute for task verification, and simulation tests do not prove the real app will never duplicate a task.
 
+## Native result recording
+
+The fast path can pass the actual `create_thread` MCP result as JSON stdin to `native_result.py --receipt ... --attempt-id ...`. The helper calls this receipt protocol, not an external creation API. It recognizes ready and queued identities and the exact known pre-execution `approval policy is never` rejection. An error with any returned identity, conflicting payloads or an unknown failure stays `uncertain`; it never guesses non-creation from a missing ID. A failure to record a result does not permit a new creation call.
+
+The known policy conflict is `failed`, not an automatic-review denial. Recovery needs a verified permission change plus a new claim under the same saved request. An unresolved attempt or existing destination cannot be replaced just because settings changed. See [setup.md](setup.md#permissions-and-recovery) for supported restricted modes and their limitations.
+
 ## App Server runtime state
 
 Creation identity and execution state are separate. A `created` receipt remains immutable evidence of the destination even when its first turn later fails or needs input. Read the same attempt's `.runtime.json` for `state`, `threadId`, `turnId`, `writerReleased`, and any `requestMethod`/error. A startup response is not evidence that the desktop can resume the task. The helper closes its own App Server after completion, failure, or an interactive request, and records `writerReleased: true` only after that process exits. This does not prove another client has not since acquired the task.

@@ -4,6 +4,38 @@ This skill is for Codex desktop with shared access to the source files. It prefe
 
 Install the complete `handoff/` directory in the user's configured Codex skills directory. Do not replace an existing directory without inspecting it. Start a fresh task or refresh skill discovery if necessary. In a supported saved Local project, select **Codex 任务交接** or send `$handoff` alone to prepare the handoff and start one new conversation there; no additional operation or confirmation is needed. If that destination cannot be verified or created, the skill reports the blocker instead of claiming success. `$handoff 帮我交接` remains equivalent. There are no separate record-only modes. Ordinary mentions and quoted examples do not activate this skill. This policy does not redefine unrelated native Codex task-management commands.
 
+## Permissions and recovery
+
+Full Access is not a skill requirement. Filesystem access and MCP approval are separate controls. Native handoff needs a writable packet/history/receipt directory inside the verified project, access to the native task tools, and permission to execute those tools. Read the current session's effective permissions; a saved `config.toml` does not establish the current turn's policy.
+
+| Effective mode | Handoff behavior |
+| --- | --- |
+| `workspace-write` + `on-request`, reviewer `user` | Save inside the writable project and use the normal native tool approval if required. Full Access is unnecessary. |
+| `workspace-write` + `on-request`, reviewer `auto_review` | Same file boundary; eligible MCP requests can go through automatic review. Approval is not guaranteed. |
+| `workspace-write` + `never` | Local preparation can work. A tool that requires approval is automatically rejected; it only executes if already allowed by the effective tool policy. |
+| `read-only` | The complete workflow needs scoped permission for project writes plus native tool permission. Without those, packet preparation cannot complete. Do not silently write elsewhere or switch to Full Access. |
+| Full Access | Removes the filesystem boundary; separate tool, managed-policy or access restrictions may still apply. Do not treat it as a universal success guarantee. |
+
+For an interactive setup, a user can select **Ask for approval** or **Approve for me / Auto-review** in the app's permissions control. Enabling a mode in settings alone does not select it for an existing chat. An optional persistent user configuration is:
+
+```toml
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+approvals_reviewer = "auto_review" # Use "user" for manual approval instead.
+```
+
+These are setup choices, not settings the skill changes as a side effect. Reload/select the effective permissions before recovery. Organization requirements may constrain the choices. Codex also documents per-tool MCP/plugin approval overrides; use only the host's verified tool identity and supported controls if the user explicitly requests such an override. Do not invent a server/plugin ID, approve all tools, or claim a local override defeats managed requirements.
+
+Interactive handoff templates do not set `never`. The optional App Server adapter accepts only the supported scalar `on-request` policy and checks it before any server startup or thread creation; it will not copy `never` or a retired policy into a new task. It cannot silently fix a host-injected policy. Granular policies currently need the native path.
+
+For observed scalar session policies, invoke preparation with `--approval-policy on-request` or `--approval-policy never`. The latter publishes the packet/history/request and a `prepared` receipt, but issues no attempt or creation claim; it cannot trigger the original MCP conflict. This flag is runtime preflight input, not frozen request identity or a permission-setting override. After the effective policy changes, prepare the same saved request with `--approval-policy on-request`. Existing queued/created/uncertain operations still cannot be recreated. Legacy callers omitting the flag retain their existing behavior; the skill's scalar-policy path supplies it. For a granular or unknown policy, omit the scalar flag rather than lying about the effective policy, check which MCP prompts are allowed, and let the native host enforce its configured review. If approval is unavailable, report the blocker without creating.
+
+Normal preparation writes only inside the project, not under the installed skill or global `~/.codex` state. If the source cwd is a nested directory and only that subtree is writable, choose its `work/handoffs` before freezing the request while keeping the verified saved-project root as `destination_workspace`. Do not move a frozen invocation to another directory to evade an access failure. Protected `.codex`, `.git` and `.agents` directories are unsuitable output locations.
+
+When the native tool reports exactly **MCP tool call requires approval, but approval policy is never**, `native_result.py` records the proven pre-execution rejection as `failed` and explains the conflict. It preserves the packet and invocation and does not issue a retry claim. After a verified, user-authorized effective permission change, submit the original saved `.request.json` to `prepare_handoff.py`; only a new `may_create: true` allows one retry. For a denial, timeout, unknown error, malformed result or returned identity mixed with an error, the helper records `uncertain`; reconcile with native task evidence instead. Do not use the App Server fallback, CLI, a different tool or UI to bypass an approval/access denial. That fallback applies only when native capability is genuinely unavailable.
+
+Official sources, checked 2026-10-02: [permission modes](https://learn.chatgpt.com/docs/permission-modes), [automatic review including MCP tools](https://learn.chatgpt.com/docs/sandboxing/auto-review), and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference). These establish supported approval mechanisms, not a guarantee that every host or organization permits native task creation. Local sandbox and script checks do not prove a live restricted-mode handoff; report those evidence levels separately.
+
 ## Optional compaction advisory
 
 The core handoff needs no hook or background monitor. Without the optional configuration below, it does not proactively remind the user about compaction. To opt into a best-effort reminder, add an instruction to the user's chosen global/project AGENTS.md, using the real installed script path:
@@ -31,6 +63,8 @@ Tests locate scripts relative to their own files. Fixtures are preserved under t
 App Server simulations also cover source model/permission preservation, rejection of mismatched effective settings, approval/input/elicitation/unknown requests, writer release, server/client request-ID collisions, and duplicate-runner prevention. They never grant permissions or create a real task. The fallback retains a writer while its first turn runs; see [app-server-fallback.md](app-server-fallback.md) for desktop availability and recovery limits.
 
 Script tests cover local file/state behavior. Native discovery, live model routing and receiving-task behavior need separate app-level evidence. In particular, a fake adapter's dropped-response test does not emulate all Codex server failures.
+
+Native-result regressions also cover ready/queued identities, the exact non-interactive approval conflict, ambiguous errors, conflicting identities and stale attempts. They do not execute an MCP tool or approve anything.
 
 
 ## Local routing regression

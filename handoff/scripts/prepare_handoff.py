@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish a compact packet, history and claimed receipt in one local call.
+"""Publish a compact packet, history and permission-aware receipt in one call.
 
 Read the observed routing metadata and human-written summary from JSON stdin.
 This helper never contacts Codex or creates a task. Only may_create=true from
@@ -30,7 +30,9 @@ def receiver_prompt(packet, project_id, destination, continuation):
               '扫描历史或写接收验收报告。不复制迁移代码，不自动再次 handoff。\n')
 
 
-def prepare(plan):
+def prepare(plan, approval_policy=None):
+    if approval_policy not in (None, 'on-request', 'never'):
+        raise ValueError('Unsupported preflight policy; pass the observed scalar policy, not a guessed setting')
     required = ('output_dir', 'workspace', 'source_thread_id', 'source_host',
                 'invocation_id', 'project_id', 'title', 'summary', 'next_action')
     if not isinstance(plan, dict) or any(not isinstance(plan.get(k), str) or not plan[k].strip()
@@ -110,26 +112,36 @@ def prepare(plan):
                         workspace=destination)
         # An incompatible archive must not freeze an otherwise recoverable request.
         history.publish_snapshot(request, encoded)
-        dispatch.prepare(receipt, packet, plan['invocation_id'], plan['source_thread_id'], workspace,
-                         destination_workspace=plan.get('destination_workspace'))
-        result = dispatch.claim(receipt)
+        record = dispatch.prepare(receipt, packet, plan['invocation_id'], plan['source_thread_id'], workspace,
+                                  destination_workspace=plan.get('destination_workspace'))
+        # A non-interactive source must not claim a new creation. Keep the saved
+        # request unchanged so an effective policy change can recover it once.
+        result = ({'may_create': False, 'receipt': record} if approval_policy == 'never'
+                  else dispatch.claim(receipt))
     record = result['receipt']
     create_args = {'target': target, 'title': plan['title'], 'prompt': prompt}
     create_args.update({key: plan[key] for key in ('model', 'thinking') if key in plan})
-    return {'create_args': create_args, 'may_create': result['may_create'], 'packet': str(packet), 'receipt': str(receipt),
+    response = {'create_args': create_args, 'may_create': result['may_create'], 'packet': str(packet), 'receipt': str(receipt),
             'attempt_id': record['attempt_id'], 'dispatch_state': record['dispatch_state'],
             'destination': record.get('destination'), 'target': target, 'title': plan['title'],
             'prompt': prompt, 'prompt_file': str(prompt_file),
             'summary_characters': len(plan['summary']),
             'size_note': 'Consider linking existing detail instead of repeating it' if len(plan['summary']) > 1600 else None}
+    if approval_policy == 'never' and record['dispatch_state'] in {'prepared', 'failed'}:
+        response.update(blocker='effective_approval_policy_never',
+                        guidance='Packet saved; no new creation claim. Select on-request with user or auto_review '
+                                 'in the host, then recover this same saved request after the effective policy changes.')
+    return response
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--compact', action='store_true', help='Omit duplicated legacy creation fields from stdout')
+    parser.add_argument('--approval-policy', choices=('on-request', 'never'),
+                        help='Observed effective scalar session policy; never saves without a creation claim')
     args = parser.parse_args()
     try:
-        result = prepare(json.load(sys.stdin))
+        result = prepare(json.load(sys.stdin), approval_policy=args.approval_policy)
     except (OSError, ValueError, TypeError) as exc:
         raise SystemExit('Preparation stopped; retain this invocation and reconcile: ' + str(exc))
     if args.compact:
