@@ -107,6 +107,18 @@ def _read_cache(path):
         if (not _hex_digest(data.get('prefix_sha256')) or not isinstance(seen, list)
                 or any(not _hex_digest(key) for key in seen) or len(set(seen)) != len(seen)):
             return None
+        # Old v1 checkpoints remain usable through full prefix validation.
+        # A complete versioned checkpoint may avoid reading an unchanged file.
+        if 'file_version' in data or 'partial_tail' in data:
+            version = data.get('file_version')
+            if (not isinstance(version, list) or len(version) != 5
+                    or any(type(value) is not int for value in version)
+                    or any(value < 0 for value in version[:3])
+                    or version[:2] != [data['device'], data['inode']]
+                    or type(data.get('partial_tail')) is not bool
+                    or data['offset'] > version[2]
+                    or data['partial_tail'] != (data['offset'] < version[2])):
+                return None
         return data
     except (OSError, ValueError, TypeError, RecursionError):
         return None
@@ -117,7 +129,7 @@ def _file_version(stat):
 
 
 def _cached_count(transcript, thread_id, state_dir):
-    """Validate every cached prefix byte; avoid only repeated JSON decoding.
+    """Reuse exact unchanged file versions; validate every changed prefix byte.
 
     The transcript need not be append-only. A changed/replaced/truncated prefix
     forces a full parse. Cache problems and contention fall back to normal work.
@@ -131,6 +143,10 @@ def _cached_count(transcript, thread_id, state_dir):
             previous = _read_cache(cache)
             with transcript.open('rb') as stream:
                 before = os.fstat(stream.fileno())
+                if (previous and previous.get('file_version') == list(_file_version(before))
+                        and _file_version(before) == _file_version(os.fstat(stream.fileno()))
+                        and _file_version(before) == _file_version(transcript.stat())):
+                    return len(previous['seen']), previous['malformed'], previous['partial_tail']
                 digest = hashlib.sha256()
                 offset, malformed, seen = 0, 0, set()
                 if (previous and previous['device'] == before.st_dev
@@ -156,7 +172,8 @@ def _cached_count(transcript, thread_id, state_dir):
                 return count_compactions(transcript)
             current = {'schema': CACHE_SCHEMA, 'device': after.st_dev, 'inode': after.st_ino,
                        'offset': offset, 'prefix_sha256': digest.hexdigest(),
-                       'seen': sorted(seen), 'malformed': malformed}
+                       'seen': sorted(seen), 'malformed': malformed,
+                       'file_version': list(_file_version(after)), 'partial_tail': partial}
             if current != previous:
                 current['checksum'] = _checksum(current)
                 try:

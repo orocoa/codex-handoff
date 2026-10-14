@@ -125,6 +125,42 @@ def runtime_path(receipt, attempt):
     return receipt.with_name(receipt.name + '.' + attempt + '.runtime.json')
 
 
+def fail_before_worker(receipt, attempt, message):
+    """Record definite local non-creation without racing an active worker."""
+    owner = runtime_path(receipt, attempt).with_suffix('.worker-claim')
+    with dispatch.locked(receipt) as receipt:
+        record = dispatch.read(receipt)
+        if (record['dispatch_state'] != 'dispatching' or record['attempt_id'] != attempt
+                or owner.exists()):
+            return False
+        record.update(dispatch_state='failed', destination=None,
+                      resolution_note='Local validation failed before worker/thread/start: ' + message)
+        dispatch.save(receipt, record)
+        return True
+
+
+def verify_prompt_integrity(packet, prompt_file, prompt_bytes):
+    """Check automatic preparation bindings; preserve legacy manual fallback."""
+    packet, prompt_file = Path(packet), Path(prompt_file)
+    sidecar = packet.with_suffix('.prompt-integrity.json')
+    request = packet.with_suffix('.request.json')
+    frozen = json.loads(request.read_text()) if request.exists() else None
+    bound = isinstance(frozen, dict) and frozen.get('schema') == 'handoff-request-v2'
+    if not sidecar.exists():
+        if bound:
+            raise ValueError('Missing prepared receiver prompt integrity record')
+        return
+    identity = json.loads(sidecar.read_text())
+    digest = hashlib.sha256(prompt_bytes).hexdigest()
+    if (not isinstance(identity, dict) or identity.get('schema') != 'handoff-prompt-v1'
+            or not isinstance(identity.get('prompt_path'), str)
+            or Path(identity['prompt_path']).resolve() != prompt_file.resolve()
+            or identity.get('sha256') != digest):
+        raise ValueError('Receiver prompt integrity mismatch; refusing thread/start')
+    if bound and frozen.get('receiver_prompt_sha256') != digest:
+        raise ValueError('Receiver prompt differs from frozen request; refusing thread/start')
+
+
 def write_runtime(path, state, **fields):
     data = json.loads(path.read_text()) if path.exists() else {}
     data.update(state=state, updated_at=dispatch.now(), **fields)
@@ -359,66 +395,99 @@ def main():
     record = dispatch.read(receipt)
     if record['dispatch_state'] != 'dispatching' or record['attempt_id'] != args.attempt_id:
         parser.error('receipt is not claimed by this attempt; refusing thread/start')
+    def local_error(message):
+        fail_before_worker(receipt, args.attempt_id, message)
+        parser.error(message)
     if Path(args.packet).resolve() != Path(record['packet_path']):
-        parser.error('packet does not match claimed receipt')
-    if hashlib.sha256(Path(args.packet).read_bytes()).hexdigest() != record['packet_sha256']:
-        parser.error('packet changed after claim; refusing thread/start')
+        local_error('packet does not match claimed receipt')
+    try:
+        packet_checksum = hashlib.sha256(Path(args.packet).read_bytes()).hexdigest()
+    except OSError as exc:
+        local_error(str(exc))
+    if packet_checksum != record['packet_sha256']:
+        local_error('packet changed after claim; refusing thread/start')
     if Path(args.cwd).resolve() != Path(record.get('destination_workspace', record['source_workspace'])).resolve():
-        parser.error('destination cwd differs from the claimed destination workspace')
+        local_error('destination cwd differs from the claimed destination workspace')
     if (not Path(args.cwd).is_absolute() or not Path(args.cwd).is_dir() or
             not Path(record['source_workspace']).is_dir() or not Path(args.prompt_file).is_file()):
-        parser.error('source/destination cwd must exist and destination must be absolute; prompt file must exist')
-    prompt = Path(args.prompt_file).read_text()
+        local_error('source/destination cwd must exist and destination must be absolute; prompt file must exist')
+    try:
+        prompt_bytes = Path(args.prompt_file).read_bytes()
+        prompt = prompt_bytes.decode('utf-8')
+        verify_prompt_integrity(args.packet, args.prompt_file, prompt_bytes)
+    except (OSError, ValueError, TypeError) as exc:
+        local_error(str(exc))
     if Path(args.packet).name not in prompt:
-        parser.error('receiver prompt must contain the unique packet filename')
+        local_error('receiver prompt must contain the unique packet filename')
     if args.startup_timeout < 1:
-        parser.error('startup-timeout must be positive')
+        local_error('startup-timeout must be positive')
     try:
         context = source_context(args.source_rollout, record)
         settings = start_settings(context)
         verify_destination_permissions(context, record['source_workspace'], args.cwd)
     except (OSError, ValueError) as exc:
-        parser.error(str(exc))
+        local_error(str(exc))
     if args.detach:
-        raise SystemExit(start_detached(args, receipt))
+        try:
+            status = start_detached(args, receipt)
+        except (OSError, ValueError) as exc:
+            local_error(str(exc))
+        raise SystemExit(status)
 
     runtime = runtime_path(receipt, args.attempt_id)
     # A claim authorizes one worker even when someone invokes the foreground
     # helper twice. Never remove this marker to retry an uncertain attempt.
     owner = runtime.with_suffix('.worker-claim')
-    fd = os.open(owner, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
-    os.close(fd)
-    write_runtime(runtime, 'starting', writerReleased=False, executionContext=context)
+    with dispatch.locked(receipt):
+        current = dispatch.read(receipt)
+        if current['dispatch_state'] != 'dispatching' or current['attempt_id'] != args.attempt_id:
+            parser.error('receipt changed before worker claim; refusing thread/start')
+        fd = os.open(owner, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        os.close(fd)
     rpc = None
     created = False
+    creation_attempted = False
+    thread_id = None
+    turn_id = None
+    stage = 'runtime_startup'
     result_status = None
     try:
+        write_runtime(runtime, 'starting', writerAcquired=False, writerReleased=None,
+                      executionContext=context)
+        stage = 'initialize'
         rpc = RpcClient()
         rpc.request('initialize', {
             'clientInfo': {'name': 'handoff_skill', 'title': 'Codex Handoff Skill',
                            'version': (Path(__file__).resolve().parents[1] / 'VERSION').read_text().strip()},
             'capabilities': {'experimentalApi': True}})
         rpc.send({'method': 'initialized', 'params': {}})
+        stage = 'project_verification'
         projects = list_projects(rpc)
         verify_project(projects, args.project_id, record['source_workspace'], args.cwd)
 
+        stage = 'thread_start'
+        creation_attempted = True  # Even a partial send makes creation ambiguous.
         response = rpc.request('thread/start', {
             'projectId': args.project_id, 'cwd': str(Path(args.cwd).resolve()), 'ephemeral': False,
             **settings})
         thread = response['thread']
         thread_id = thread['id']
-        write_runtime(runtime, 'starting', threadId=thread_id)
+        write_runtime(runtime, 'starting', threadId=thread_id, writerAcquired=True, writerReleased=False)
+        stage = 'settings_verification'
         verify_settings(response, context)
         print(json.dumps({'event': 'thread_started', 'threadId': thread_id,
                           'projectId': thread.get('projectId'), 'cwd': thread.get('cwd')},
                          ensure_ascii=False), flush=True)
         observed = thread
+        stage = 'destination_verification'
         if not observed.get('projectId') or not observed.get('cwd'):
             observed = rpc.request('thread/read', {'threadId': thread_id, 'includeTurns': False})['thread']
         if (observed.get('projectId') != args.project_id or not observed.get('cwd') or
                 Path(observed['cwd']).resolve() != Path(args.cwd).resolve()):
             raise RuntimeError('Thread Project/cwd verification failed before first turn')
+        stage = 'thread_name'
         rpc.request('thread/name/set', {'threadId': thread_id, 'name': args.title})
+        stage = 'turn_start'
         turn = rpc.request('turn/start', {'threadId': thread_id,
                             'model': context['model'], 'effort': context['effort'],
                             'approvalPolicy': context['approvalPolicy'],
@@ -431,9 +500,11 @@ def main():
         write_runtime(runtime, 'running', turnId=turn_id)
         print(json.dumps({'event': 'turn_started', 'threadId': thread_id,
                           'projectId': args.project_id, 'cwd': args.cwd}, ensure_ascii=False), flush=True)
+        stage = 'monitor'
         result_status = monitor_turn(rpc, thread_id, turn_id, runtime)
         if result_status == 'attention_required':
             return 3
+        stage = 'persistence_verification'
         detail = rpc.request('thread/read', {'threadId': thread_id, 'includeTurns': False})['thread']
         print(json.dumps({'event': 'verified_thread', 'threadId': thread_id,
                           'projectId': detail.get('projectId'), 'cwd': detail.get('cwd'),
@@ -446,16 +517,60 @@ def main():
         if not created:
             # A timeout after thread/start was sent is ambiguous. The durable
             # receipt prevents a blind second creation attempt.
-            dispatch.finish(receipt, args.attempt_id, 'uncertain', note=str(exc))
-        print(json.dumps({'event': 'error', 'created': created, 'detail': str(exc)}, ensure_ascii=False), flush=True)
-        write_runtime(runtime, 'failed', error=str(exc))
+            outcome = 'uncertain' if creation_attempted else 'not-created'
+            note = ('App Server failure at ' + stage + ': ' + str(exc)
+                    + ('. Unverified returned threadId: ' + thread_id if isinstance(thread_id, str) else '')
+                    + ('' if creation_attempted else '. No thread/start request was attempted.'))
+            try:
+                # Replacement can succeed before directory sync reports failure.
+                # Preserve that saved destination rather than downgrading it.
+                current = dispatch.read(receipt)
+                if current['attempt_id'] == args.attempt_id and current['dispatch_state'] == 'created':
+                    created = True
+                else:
+                    dispatch.finish(receipt, args.attempt_id, outcome, note=note)
+            except Exception as recording_error:
+                print(json.dumps({'event': 'receipt_record_error', 'stage': stage,
+                                  'detail': str(recording_error)}, ensure_ascii=False), flush=True)
+        print(json.dumps({'event': 'error', 'created': created, 'stage': stage,
+                          'creationAttempted': creation_attempted, 'detail': str(exc)}, ensure_ascii=False), flush=True)
+        try:
+            write_runtime(runtime, 'failed', error=str(exc), failureStage=stage,
+                          creationAttempted=creation_attempted, writerAcquired=rpc is not None,
+                          **({'threadId': thread_id} if isinstance(thread_id, str) else {}),
+                          **({'turnId': turn_id} if isinstance(turn_id, str) else {}))
+        except Exception as recording_error:
+            print(json.dumps({'event': 'runtime_record_error', 'stage': stage,
+                              'detail': str(recording_error)}, ensure_ascii=False), flush=True)
         raise
     finally:
+        primary_error = sys.exc_info()[0] is not None
+        release_error = None
+        released = False
         if rpc is not None:
-            rpc.close()
-        current = json.loads(runtime.read_text())
-        write_runtime(runtime, current['state'], writerReleased=True, released_at=dispatch.now())
-        print(json.dumps({'event': 'writer_released', 'state': current['state']}), flush=True)
+            try:
+                rpc.close()
+                released = True
+            except Exception as exc:
+                release_error = exc
+                print(json.dumps({'event': 'writer_release_error', 'detail': str(exc)},
+                                 ensure_ascii=False), flush=True)
+        try:
+            current = json.loads(runtime.read_text())
+            write_runtime(runtime, current['state'], writerAcquired=rpc is not None,
+                          writerReleased=released if rpc is not None else None,
+                          **({'released_at': dispatch.now()} if released else {}))
+        except Exception as recording_error:
+            print(json.dumps({'event': 'runtime_record_error', 'stage': 'cleanup',
+                              'detail': str(recording_error)}, ensure_ascii=False), flush=True)
+            if not primary_error and release_error is None:
+                raise
+        if released:
+            print(json.dumps({'event': 'writer_released'}), flush=True)
+        elif rpc is None:
+            print(json.dumps({'event': 'writer_not_acquired'}), flush=True)
+        if release_error is not None and not primary_error:
+            raise release_error
 
 
 if __name__ == '__main__':

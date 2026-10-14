@@ -31,11 +31,25 @@ Use `show --receipt <receipt.json>` to inspect state. Corrupt/older-schema recei
 
 The guarantee is local and conditional: cooperating callers using the same receipt get one claim per unresolved attempt. There is no transaction spanning the file and Codex's external task creation. If creation succeeds but saving its result fails, the earlier dispatching state prevents blind retries. The receipt is not a substitute for task verification, and simulation tests do not prove the real app will never duplicate a task.
 
+## Frozen request and prompt integrity
+
+New preparation writes a `handoff-request-v2` envelope containing the unchanged user plan and the exact `receiver_prompt_sha256`. After packet/history publication succeeds, the adjacent `.prompt-integrity.json` binds the absolute prompt path, digest and normalized `history_dir` before the prompt/request is published or claimed. This prevents a failed archive from leaving a new prompt that points to an unpublished archive. A later pre-freeze interruption can still verify its saved prompt. Pass either a saved v2 envelope or a legacy flat `.request.json` directly as stdin to `prepare_handoff.py --compact`; no manual request editing is needed.
+
+Preparation checks these bindings before a new claim, including archive conflicts when a saved binding contains `history_dir`. A changed/truncated prompt fails with the original request/receipt retained; it is not accepted by reading the altered text and hashing it anew. Do not repair this by deleting or rewriting the binding. Existing sidecars without the archive field stay byte-identical, and frozen requests already bind the complete plan. For old flat frozen requests with no binding, the helper reconstructs the known legacy packet-only renderer included in this version and accepts only exact bytes. Unknown older prompt wording or a missing unbound legacy prompt requires evidence-based reconciliation; preserve all originals. A recognized legacy request and prompt remain byte-identical, with a new sidecar only. Once bound, an unchanged prompt survives a renderer upgrade; older prompts may lack the new inline source/archive metadata and must not be rewritten automatically.
+
+Packet/prompt/history publication must finish before freezing a new request or claiming. If a history directory is incompatible before freeze, choose a compliant directory under the same invocation and retain the packet/summary identity. Frozen requests never change merely to fit a new history directory; use the legacy recovery protocol below.
+
+## One startup observation
+
+Only an error-free, nonconflicting confirmed `threadId` permits the one `wait_threads(timeoutMs: 0)` snapshot, including identities returned as JSON in `content.text`. Record the raw creation result and take that snapshot in parallel; uncertain or conflicting IDs are not snapshot targets. If the caller cannot confidently classify the raw identity, record first and use only a `created` result's authoritative `destination.threadId` for the snapshot within the same orchestration call. Running is evidence of startup; queued is pending startup. A ready ID with idle, absent or failed snapshot data means **created, startup unconfirmed**, not non-creation. Keep the destination and explain any actual snapshot error. A client-only ID is not a valid `wait_threads` target. Stop after this observation; do not poll business work or recreate a destination to obtain a stronger startup claim.
+
 ## Native result recording
 
 The fast path can pass the actual `create_thread` MCP result as JSON stdin to `native_result.py --receipt ... --attempt-id ...`. The helper calls this receipt protocol, not an external creation API. It recognizes ready and queued identities and the exact known pre-execution `approval policy is never` rejection. An error with any returned identity, conflicting payloads or an unknown failure stays `uncertain`; it never guesses non-creation from a missing ID. A failure to record a result does not permit a new creation call.
 
 For failed or uncertain results, the helper retains a bounded excerpt of the returned error in the attempt note and returns it as `observed_error` when available. This is observed evidence, not a diagnosis: redact sensitive details in the user-facing report, and state that the root cause is unknown when the tool does not explain it. A retained error message does not authorize another creation attempt.
+
+For uncertain results it also retains bounded returned IDs in the note and `observed_destinations`. These are unverified candidates for reconciling this attempt; they do not populate the authoritative destination or enable another claim, even when one candidate looks plausible.
 
 The known policy conflict is `failed`, not an automatic-review denial. Recovery needs a verified permission change plus a new claim under the same saved request. An unresolved attempt or existing destination cannot be replaced just because settings changed. See [setup.md](setup.md#permissions-and-recovery) for supported restricted modes and their limitations.
 
@@ -47,7 +61,7 @@ If `attention_required`, report the request type and the existing task link. Do 
 
 ## Legacy preparation stopped before claim
 
-New preparation freezes `.request.json` only after packet/prompt/history publication succeeds. A known incompatible history directory can therefore be corrected under the same invocation/output before freezing; packet, summary and other identity fields remain fixed. A retry across a skill update reuses the saved receiver prompt instead of rendering new wording into the existing invocation.
+New preparation publishes history before creating a new prompt/binding, and freezes `.request.json` only after packet/history/prompt publication succeeds. A known incompatible history directory can therefore be corrected under the same invocation/output while no prompt is bound; packet, summary and other identity fields remain fixed. An already bound archive conflict requires reconciliation with the original files retained, even before request freeze. A compatible retry across a skill update reuses the saved receiver prompt instead of rendering new wording into the existing invocation.
 
 For an older request already frozen by a pre-claim history failure, preserve every existing file. First establish from the observed failure and receipt state that no creation claim was issued; a merely missing file is not proof that a task was never created. If uncertain, use normal reconciliation above.
 

@@ -1,6 +1,18 @@
 # Changelog · 更新记录
 
-## Unreleased — 2026-10-02
+## 0.1.0-alpha.18 source · 源码 — 2026-10-14
+
+Source update after two audit rounds. The published tag/archive remain alpha.17; this entry does not announce an alpha.18 GitHub Release, release archive or verified installation. / 两轮审查后的源码更新。已发布 tag/压缩包仍为 alpha.17；此条目不表示已创建 alpha.18 GitHub Release、压缩包或已验证安装。
+
+- Keep the normal native path in two orchestration calls: fresh project verification, then prepare → one create → parallel result recording and one startup snapshot. / 正常原生路径可用两轮工具编排：新鲜项目核实，再准备 → 一次创建 → 并行记录结果与一次启动快照。
+- Inline necessary context and the authorized next step. Preserve latest user decisions, unfinished/undecided work, shared resources and required evidence; 150–400 characters is a simple-task drafting reference, not a truncation limit. / 必要上下文与已授权下一步直接进入提示；保留最新用户决定、未做/未决事项、共享资源及必要证据，不因参考字数截断。
+- Carry the source cwd/path basis and existing output/archive locations into later explicit handoffs. Publish history before binding a new prompt; reject saved archive-binding conflicts before claim. / 续传来源 cwd/路径基准和既定输出/历史目录；先发布历史再绑定新提示，认领前拒绝已有归档绑定冲突。
+- Recover compatible old requests with unchanged packet, prompt and sidecar bytes; do not rewrite frozen older prompts to add metadata. / 兼容恢复逐字节保留旧包、提示与 sidecar，不为增加元数据改写已冻结提示。
+- Preserve the original App Server failure when receipt/runtime recording also fails, including any already-recorded destination; retain native returned errors and uncertain identities. / App Server 二次收据或运行记录失败不掩盖原始错误，保留已记录目的地；原生结果保留实际错误与不确定身份。
+- Retain the first audit's exact-file-version fast cache for unchanged logs, with prefix validation for changed files. The second audit did not alter that cache path or remove creation/receipt safeguards. / 保留首轮针对完全未变日志的精确版本快速缓存，文件变化仍核验旧前缀；第二轮未改该路径或删除创建/收据保护。
+- Validation: **180 local regressions**, **11 context/forward scenarios**, and two independent 16-branch orchestration runs (**32 branch checks**) passed. An independent receiver-model trial used the correct source file and latest JSON decision while preserving originals. Native creation/startup was simulated; no real sidebar handoff or end-to-end latency benchmark was performed. / **180 项本地回归、11 个接续情景、两轮共 32 次编排分支检查通过**；独立模型接收者实际使用正确来源与最新 JSON 决定并保留原件。原生创建/启动为模拟，未进行真实 sidebar handoff 或端到端延迟测量。
+
+## Earlier source updates · 较早源码更新 — 2026-10-02
 
 - Support interactive handoff with workspace-only writes and manual or automatic MCP review; Full Access is optional.
 - Remove the native skill's policy preflight and its `--approval-policy` / `--sandbox-mode` preparation inputs. Save, claim once, invoke native creation and confirm startup without a second user handoff prompt. / 移除原生流程的独立审批预检与准备参数，直接完成保存、一次认领、创建和启动确认。

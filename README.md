@@ -25,12 +25,14 @@ An explicit handoff skill for the **Codex desktop app**. When a long conversatio
 
 Your files stay in place. There is no handoff prompt to copy and no second “continue” message to send. The core workflow needs no hook or always-on service.
 
-**Current release:** `0.1.0-alpha.17` · **133 local regression tests passed** · **macOS tested** · **MIT**
+**Current source:** `0.1.0-alpha.18` · **180 local regression tests passed** · **macOS tested** · **MIT**
+
+The published tag and release archive remain `0.1.0-alpha.17`. These source updates do not create an alpha.18 GitHub Release or replace that archive.
 
 ```text
 $handoff
    → verify the saved Local project
-   → save a short packet, history, and creation receipt
+   → save necessary context, history, and a creation receipt
    → create one successor chat
    → acknowledge the context and continue the authorized next step
 ```
@@ -93,9 +95,9 @@ The skill does not change permission settings or use another interface to bypass
 
 See the [mode matrix, configuration and recovery instructions](handoff/references/setup.md#permissions-and-recovery). Local checks cover workspace-only preparation and read-only rejection; these are not live restricted-mode MCP handoff tests. Host policies and automatic review can still block creation.
 
-The native workflow has no skill-level approval preflight: save, claim once, call the native tool, and confirm startup. Preparation no longer takes `--approval-policy` or `--sandbox-mode`; remove those flags (or Python keyword arguments) from older callers. The host still enforces actual tool permissions. Failures report the stopped stage, returned reason, creation certainty and recovery step; a timeout is not proof of non-creation. Old unclaimed receipts reuse their frozen request. The current source passes 149 local tests; the alpha.17 release archive predates these updates.
+The native workflow has no skill-level approval preflight: save, claim once, call the native tool, and observe startup once. Preparation no longer takes `--approval-policy` or `--sandbox-mode`; remove those flags (or Python keyword arguments) from older callers. The host still enforces actual tool permissions. Failures report the stopped stage, returned reason, creation certainty and recovery step; a timeout is not proof of non-creation. Compatible old requests reuse their original prompt and bindings byte for byte. The current source passes 180 local tests; the alpha.17 release archive predates these updates.
 
-The optional App Server adapter also preserves the observed supported policy (`on-request` or `never`) instead of requiring a permission switch. It still verifies the model, provider and access boundaries. Failed or uncertain native results retain the actual returned error in the receipt.
+The optional App Server adapter also preserves the observed supported policy (`on-request` or `never`) instead of requiring a permission switch. It still verifies the model, provider and access boundaries. Failed or uncertain native results retain the actual returned error in the receipt. If fallback error recording also fails, it preserves the original failure and any already-recorded destination.
 
 Skill maintenance, diagnosis, tests and repository synchronization do not initiate a handoff, including when the skill is attached to that request. An unregistered projectless directory needs a verified saved Local project; retain the original request while the user registers their chosen directory.
 
@@ -109,7 +111,9 @@ Skill maintenance, diagnosis, tests and repository synchronization do not initia
    ```
 
 3. Handoff verifies the project, saves the packet and history, then creates the successor. The source chat reports the new link and the observed startup state.
-4. Follow the link. The receiver checks its working directory, acknowledges the context, and continues the next authorized step. A queued chat is reported as queued, not as already running.
+4. Follow the link. The receiver uses the inline context and source path basis, acknowledges receipt, and continues the next authorized step. A queued chat is reported as queued, not as already running.
+
+The normal native path reads only `SKILL.md` and usually fits two orchestration calls: verify the project, then prepare → create once → record the result and take one startup snapshot in parallel. Necessary context is inline in the successor's prompt; no routine packet intake read or full history scan is needed. Keep the goal, latest user decisions, remaining work, boundaries and necessary evidence, even when a complex task needs more than the simple-task 150–400-character drafting reference.
 
 The current picker label and fixed generated prompt text are Chinese. The usage documentation is available in both languages.
 
@@ -143,7 +147,7 @@ Do not repeatedly issue fresh `$handoff` requests to resolve an uncertain creati
 |---|---|
 | Explicit invocation | You decide when to switch. Ordinary mentions, quoted examples, editing, and tests do not initiate a handoff. |
 | Verified saved Local project | The successor uses the same project and checkout. A source subdirectory is distinguished from the receiving project root. |
-| A short packet plus durable history | Keep the goal, decisions, boundaries, evidence paths, and next step close at hand; retain earlier handoff snapshots. |
+| Sufficient inline context plus durable history | Keep the goal, latest decisions, boundaries, evidence paths, and next step close at hand; retain earlier handoff snapshots. |
 | A creation receipt | Record the attempt and actual queued, created, or uncertain outcome; inspect an ambiguous result before recreating anything. |
 | A lightweight receiving flow | Acknowledge context, inspect relevant current files, and continue authorized work without repeating a full project audit. |
 
@@ -156,7 +160,8 @@ By default, new handoff artifacts live in the verified project root's `work/hand
 ```text
 work/handoffs/
 ├── handoff-<id>.md                  # Essential context and next action
-├── handoff-<id>.receiver-prompt.txt # Prompt pointing to the packet
+├── handoff-<id>.receiver-prompt.txt # Inline context, source paths, and next step
+├── handoff-<id>.prompt-integrity.json # Saved prompt digest and archive binding
 ├── handoff-<id>.request.json        # Frozen preparation inputs
 ├── handoff-<id>.receipt.json        # Creation attempt and destination state
 └── history/
@@ -166,6 +171,8 @@ work/handoffs/
 ```
 
 Lock files and optional fallback runtime files are omitted from this overview. Earlier snapshots remain available beyond the eight-entry index. This is a history of authored handoff packets, not a complete transcript export or portable file backup. Archives can contain task IDs, absolute paths, and sensitive project summaries; inspect them before publishing a project.
+
+The inline prompt preserves source versus receiving cwd and the existing output/archive locations for a later explicit handoff. Relative business paths use the source cwd. New preparation publishes history before binding the prompt; an archive failure cannot leave a new prompt pointing to an unpublished archive. Older frozen prompts remain unchanged and may lack these new inline fields.
 
 ## A month of real use, then “众神指导”
 
@@ -177,15 +184,17 @@ Lock files and optional fallback runtime files are omitted from this overview. E
 
 The month of use is the maintainer's personal experience. The Astra credit describes this release's development and review; it is not an OpenAI endorsement or a newly trained foundation model. Astra is not a runtime requirement: native creation forwards a model or reasoning override only when the user explicitly chose one; otherwise it uses the host tool's default.
 
-## What's new in alpha.17
+## Source updates in alpha.18
 
-Correct source/receiver directories, checked archive boundaries, recoverable history failures, canonical receipt identities, real RPC deadlines, and provider verification in fallback. Repeated preparation avoids redundant writes; large transcript checks avoid repeated JSON decoding after validating their cached prefix.
+Inline necessary context, source path and output/archive continuity, byte-preserving old-request recovery, and original App Server error retention. The normal path can be orchestrated in two calls while preserving the existing creation receipt and single startup observation. The unchanged-file transcript cache uses an exact file-version check; changed files still validate their previous prefix. The second audit did not change that cache path.
 
 See the bilingual [changelog](CHANGELOG.md) and [measurement notes](docs/benchmarks.md). Some local paths became substantially faster; first preparation and small transcript scans did not. No whole-handoff latency or token-cost reduction is claimed.
 
 ## Validation and limits
 
-The release passed **133 tests** using synthetic projects and simulated App Server processes. They cover local file/state behavior, concurrent claims, interrupted publication, recovery, routing, settings checks, and cache invalidation. They do not prove live model behavior or every desktop version.
+The current source passed **180 local regression tests** using synthetic projects and simulated App Server processes, plus **11 context/forward scenarios**. Two independent orchestration runs each passed 16 simulated branches (**32 branch checks**), including ready, queued, rejected, malformed, uncertain and no-recreate outcomes. A separate receiver-model trial actually read the correct source file, followed the latest JSON decision, and preserved the input and unrelated root counterpart.
+
+These audits started no real sidebar handoff. Native creation/startup was simulated; the receiver trial used local artifacts. This evidence does not guarantee host startup, every desktop version or end-to-end latency. The published alpha.17 archive's historical validation remains 133 tests.
 
 From the repository root:
 

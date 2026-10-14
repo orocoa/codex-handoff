@@ -107,12 +107,43 @@ def failure_detail(result):
     return '\n'.join(dict.fromkeys(messages))[:1600] or None
 
 
+def observed_destinations(result):
+    """Retain only bounded identity evidence; none is an authoritative target."""
+    if not isinstance(result, dict):
+        return []
+    payloads = [result]
+    if isinstance(result.get('structuredContent'), dict):
+        payloads.append(result['structuredContent'])
+    blocks = result.get('content', [])
+    for block in blocks if isinstance(blocks, list) else []:
+        if not isinstance(block, dict) or block.get('type') != 'text' or not isinstance(block.get('text'), str):
+            continue
+        try:
+            payload = json.loads(block['text'])
+        except ValueError:
+            continue
+        if isinstance(payload, dict):
+            payloads.append(payload)
+    observed = []
+    for payload in payloads:
+        identity = {key: payload[key][:200] for key in IDENTIFIERS
+                    if isinstance(payload.get(key), str) and payload[key].strip()}
+        if identity and identity not in observed:
+            observed.append(identity)
+        if len(observed) == 8:
+            break
+    return observed
+
+
 def record(receipt, attempt_id, result):
     decision = classify(result)
     detail = failure_detail(result) if decision['outcome'] in ('uncertain', 'not-created') else None
     note = decision.get('note')
     if detail and detail not in (note or ''):
         note = (note or '') + ' Observed native response: ' + detail
+    evidence = observed_destinations(result) if decision['outcome'] == 'uncertain' else []
+    if evidence:
+        note = (note or '') + ' Unverified destination evidence (reconcile; never retry blindly): ' + json.dumps(evidence, ensure_ascii=False)
     state = dispatch.finish(Path(receipt), attempt_id, decision['outcome'],
                             thread_id=decision.get('thread_id'), client_id=decision.get('client_id'),
                             host_id=decision.get('host_id'), note=note)
@@ -123,11 +154,12 @@ def record(receipt, attempt_id, result):
             'Do not change settings automatically or switch to another creation interface. '
             'Retry the same saved request only after a verified permission change and a new claim.'),
         'creation_result_uncertain': 'Reconcile this attempt through native task evidence; do not retry creation.',
-        'created': 'Take one native startup snapshot; creation alone does not prove continuation has started.',
+        'created': 'Report the one native startup snapshot; do not repeat it if already taken. Creation alone does not prove continuation has started.',
         'queued': 'Report queued; clientThreadId is not a ready thread ID. Recover this same operation.',
     }[decision['reason']]
     return {'dispatch_state': state['dispatch_state'], 'destination': state.get('destination'),
             'reason': decision['reason'], 'guidance': guidance, 'may_create': False,
+            **({'observed_destinations': evidence} if evidence else {}),
             **({'observed_error': detail} if detail else {})}
 
 

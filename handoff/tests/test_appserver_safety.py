@@ -1,4 +1,7 @@
 import fcntl
+import hashlib
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
@@ -6,6 +9,7 @@ import subprocess
 import sys
 import time
 import unittest
+from unittest.mock import patch
 import uuid
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'scripts'
@@ -31,10 +35,16 @@ for line in sys.stdin:
     with (root / 'requests.jsonl').open('a') as f:
         f.write(json.dumps(r) + '\n')
     if m == 'initialize':
+        if mode == 'initialize-failure':
+            send({'id': r['id'], 'error': {'message': 'Synthetic initialize failure'}})
+            continue
         result = {}
     elif m == 'project/list':
-        result = {'data': [{'id': 'project-test', 'roots': [{'path': str(root)}]}], 'nextCursor': None}
+        result = {'data': [] if mode == 'missing-project' else [
+            {'id': 'project-test', 'roots': [{'path': str(root)}]}], 'nextCursor': None}
     elif m == 'thread/start':
+        if mode == 'start-disconnect':
+            sys.exit(7)
         policy = {'type': 'dangerFullAccess'}
         if p['sandbox'] == 'workspace-write':
             policy = {'type': 'workspaceWrite', 'networkAccess': p['config']['sandbox_workspace_write.network_access'],
@@ -148,6 +158,138 @@ class DispatchSafety(unittest.TestCase):
         self.assertEqual(turn['sandboxPolicy'], {'type': 'workspaceWrite', 'networkAccess': False,
                          'writableRoots': [str(root)], 'excludeTmpdirEnvVar': True, 'excludeSlashTmp': True})
         self.assertTrue(json.loads(runner.runtime_path(receipt, attempt).read_text())['writerReleased'])
+
+    def test_failures_before_thread_start_keep_definite_non_creation_and_allow_same_request_retry(self):
+        for mode, stage in (('initialize-failure', 'initialize'), ('missing-project', 'project_verification')):
+            with self.subTest(mode=mode):
+                root, receipt, attempt, command, env = self.fixture(mode)
+                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+                self.assertNotEqual(result.returncode, 0)
+                requests = [json.loads(line) for line in (root / 'requests.jsonl').read_text().splitlines()]
+                self.assertFalse(any(r['method'] == 'thread/start' for r in requests))
+                state = dispatch.read(receipt)
+                self.assertEqual(state['dispatch_state'], 'failed')
+                self.assertIn(stage, state['resolution_note'])
+                runtime = json.loads(runner.runtime_path(receipt, attempt).read_text())
+                self.assertFalse(runtime['creationAttempted'])
+                self.assertTrue(runtime['writerReleased'])
+                retry = dispatch.claim(receipt)
+                self.assertTrue(retry['may_create'])
+                self.assertNotEqual(retry['receipt']['attempt_id'], attempt)
+                self.assertEqual(retry['receipt']['invocation_id'], 'invocation-test')
+
+    def test_thread_start_disconnect_stays_ambiguous_and_cannot_recreate(self):
+        root, receipt, attempt, command, env = self.fixture('start-disconnect')
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertNotEqual(result.returncode, 0)
+        state = dispatch.read(receipt)
+        self.assertEqual(state['dispatch_state'], 'uncertain')
+        self.assertIn('thread_start', state['resolution_note'])
+        self.assertFalse(dispatch.claim(receipt)['may_create'])
+        self.assertTrue(json.loads(runner.runtime_path(receipt, attempt).read_text())['writerReleased'])
+
+    def test_local_validation_failure_can_retry_without_an_existing_worker(self):
+        root, receipt, attempt, command, env = self.fixture('complete')
+        command[command.index('--prompt-file') + 1] = str(root / 'missing-prompt.txt')
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((root / 'requests.jsonl').exists())
+        self.assertEqual(dispatch.read(receipt)['dispatch_state'], 'failed')
+        self.assertIn('Local validation', dispatch.read(receipt)['resolution_note'])
+        self.assertTrue(dispatch.claim(receipt)['may_create'])
+
+    def test_invalid_competing_command_does_not_fail_existing_worker_attempt(self):
+        root, receipt, attempt, command, env = self.fixture('complete')
+        runner.runtime_path(receipt, attempt).with_suffix('.worker-claim').write_text('existing worker')
+        before = receipt.read_bytes()
+        command[command.index('--prompt-file') + 1] = str(root / 'missing-prompt.txt')
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(receipt.read_bytes(), before)
+        self.assertFalse(dispatch.claim(receipt)['may_create'])
+
+    def test_prepared_prompt_binding_rejects_mutation_even_with_rewritten_sidecar(self):
+        for rewrite_sidecar in (False, True):
+            with self.subTest(rewrite_sidecar=rewrite_sidecar):
+                root, receipt, attempt, command, env = self.fixture('complete')
+                packet, prompt = root / 'packet.md', root / 'prompt.txt'
+                digest = hashlib.sha256(prompt.read_bytes()).hexdigest()
+                sidecar = packet.with_suffix('.prompt-integrity.json')
+                identity = {'schema': 'handoff-prompt-v1', 'prompt_path': str(prompt), 'sha256': digest}
+                sidecar.write_text(json.dumps(identity))
+                packet.with_suffix('.request.json').write_text(json.dumps({
+                    'schema': 'handoff-request-v2', 'plan': {}, 'receiver_prompt_sha256': digest}))
+                prompt.write_text('Read packet.md but perform a different action.')
+                if rewrite_sidecar:
+                    identity['sha256'] = hashlib.sha256(prompt.read_bytes()).hexdigest()
+                    sidecar.write_text(json.dumps(identity))
+                result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse((root / 'requests.jsonl').exists())
+                self.assertEqual(dispatch.read(receipt)['dispatch_state'], 'failed')
+                self.assertIn('prompt', dispatch.read(receipt)['resolution_note'])
+
+    def test_missing_prepared_prompt_sidecar_is_not_treated_as_manual_legacy(self):
+        root, receipt, attempt, command, env = self.fixture('complete')
+        (root / 'packet.request.json').write_text(json.dumps({'schema': 'handoff-request-v2',
+            'plan': {}, 'receiver_prompt_sha256': hashlib.sha256((root / 'prompt.txt').read_bytes()).hexdigest()}))
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=8)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse((root / 'requests.jsonl').exists())
+        self.assertEqual(dispatch.read(receipt)['dispatch_state'], 'failed')
+
+    def test_detached_worker_spawn_failure_can_retry_original_invocation(self):
+        root, receipt, attempt, command, env = self.fixture('complete')
+        stderr = io.StringIO()
+        with patch.object(sys, 'argv', command[1:] + ['--detach']), \
+                patch.object(runner.subprocess, 'Popen', side_effect=OSError('Synthetic worker launch failure')), \
+                contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit):
+            runner.main()
+        (root / 'spawn-error.txt').write_text(stderr.getvalue())
+        state = dispatch.read(receipt)
+        self.assertEqual(state['dispatch_state'], 'failed')
+        self.assertIn('Synthetic worker launch failure', state['resolution_note'])
+        self.assertFalse(runner.runtime_path(receipt, attempt).with_suffix('.worker-claim').exists())
+        self.assertTrue(dispatch.claim(receipt)['may_create'])
+
+    def test_initial_runtime_write_failure_retains_original_error_and_safe_retry(self):
+        for persist_failure in (False, True):
+            with self.subTest(persist_failure=persist_failure):
+                root, receipt, attempt, command, env = self.fixture('complete')
+                real_write = runner.write_runtime
+                writes = []
+                def fail_initial(path, state, **fields):
+                    writes.append(state)
+                    if len(writes) == 1:
+                        raise OSError('Synthetic initial runtime I/O failure')
+                    if persist_failure:
+                        raise OSError('Synthetic secondary runtime I/O failure')
+                    return real_write(path, state, **fields)
+                output = io.StringIO()
+                with patch.object(sys, 'argv', command[1:]), \
+                        patch.object(runner, 'write_runtime', side_effect=fail_initial), \
+                        patch.object(runner, 'RpcClient') as client, \
+                        contextlib.redirect_stdout(output), \
+                        self.assertRaisesRegex(OSError, 'Synthetic initial runtime I/O failure'):
+                    runner.main()
+                client.assert_not_called()
+                (root / 'runtime-io-error-output.txt').write_text(output.getvalue())
+                state = dispatch.read(receipt)
+                self.assertEqual(state['dispatch_state'], 'failed')
+                self.assertIn('runtime_startup', state['resolution_note'])
+                self.assertIn('Synthetic initial runtime I/O failure', state['resolution_note'])
+                self.assertNotIn('secondary', state['resolution_note'])
+                self.assertIn('writer_not_acquired', output.getvalue())
+                self.assertNotIn('writer_released', output.getvalue())
+                if not persist_failure:
+                    live = json.loads(runner.runtime_path(receipt, attempt).read_text())
+                    self.assertEqual(live['failureStage'], 'runtime_startup')
+                    self.assertFalse(live['writerAcquired'])
+                    self.assertIsNone(live['writerReleased'])
+                retry = dispatch.claim(receipt)
+                self.assertTrue(retry['may_create'])
+                self.assertNotEqual(retry['receipt']['attempt_id'], attempt)
+                self.assertEqual(retry['receipt']['invocation_id'], 'invocation-test')
 
     def test_never_is_preserved_through_creation_and_startup(self):
         root, receipt, attempt, command, env = self.fixture('complete', workspace=True)

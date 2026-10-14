@@ -66,6 +66,88 @@ class CachedContext(unittest.TestCase):
         self.assertNotIn('private-message-not-for-cache', self.cache().read_text())
         self.assertNotIn('window-1', self.cache().read_text())
 
+    def test_unchanged_complete_log_skips_prefix_hash_and_scan(self):
+        self.log.write_bytes(encoded([compact(1), compact(2)]))
+        self.count()
+        sha256 = M.hashlib.sha256
+        def no_prefix_hash(*args, **kwargs):
+            if not args and not kwargs:
+                raise AssertionError('unchanged transcript was hashed')
+            return sha256(*args, **kwargs)
+        with patch.object(M.hashlib, 'sha256', no_prefix_hash), patch.object(
+                M, '_scan', side_effect=AssertionError('unchanged transcript was scanned')):
+            self.assertEqual(self.count()['observed_compactions'], 2)
+
+    def test_unchanged_partial_tail_shortcut_then_completion_and_truncation(self):
+        complete = encoded([compact(1)])
+        partial = json.dumps(compact(2)).encode()
+        self.log.write_bytes(complete + partial[:20])
+        first = self.count()
+        with patch.object(M, '_scan', side_effect=AssertionError('unchanged partial tail was rescanned')):
+            self.assertEqual(self.count(), first)
+        with self.log.open('ab') as stream:
+            stream.write(partial[20:] + b'\n')
+        finished = self.count()
+        self.assertFalse(finished['partial_tail'])
+        self.assertEqual(finished['observed_compactions'], 2)
+        self.log.write_bytes(complete + partial[:10])
+        truncated = self.count()
+        self.assertTrue(truncated['partial_tail'])
+        self.assertEqual(truncated['observed_compactions'], 1)
+
+    def test_change_during_stat_shortcut_validation_does_not_return_stale_count(self):
+        self.log.write_bytes(encoded([compact(1), compact(2)]))
+        self.count()
+        original_cache = self.cache().read_bytes()
+        fstat = M.os.fstat
+        calls = []
+        def mutate_on_recheck(fd):
+            calls.append(fd)
+            if len(calls) == 2:
+                self.log.write_bytes(encoded([compact(1), compact(1)]))
+            return fstat(fd)
+        with patch.object(M.os, 'fstat', mutate_on_recheck):
+            self.assertEqual(self.count()['observed_compactions'], 1)
+        self.assertEqual(self.cache().read_bytes(), original_cache)
+        self.assertEqual(self.count()['observed_compactions'], 1)
+
+    def test_old_checkpoint_hashes_prefix_before_upgrade(self):
+        self.log.write_bytes(encoded([compact(1), compact(2)]))
+        self.count()
+        data = json.loads(self.cache().read_text())
+        for key in ('file_version', 'partial_tail', 'checksum'):
+            data.pop(key)
+        data['checksum'] = M._checksum(data)
+        self.cache().write_text(json.dumps(data))
+        sha256 = M.hashlib.sha256
+        empty_hashes = []
+        def track_prefix_hash(*args, **kwargs):
+            if not args and not kwargs:
+                empty_hashes.append(True)
+            return sha256(*args, **kwargs)
+        with patch.object(M.hashlib, 'sha256', track_prefix_hash):
+            self.assertEqual(self.count()['observed_compactions'], 2)
+        self.assertTrue(empty_hashes)
+        upgraded = json.loads(self.cache().read_text())
+        self.assertEqual(upgraded['file_version'], list(M._file_version(self.log.stat())))
+        self.assertFalse(upgraded['partial_tail'])
+
+    def test_invalid_file_version_or_tail_checkpoint_forces_full_rescan(self):
+        self.log.write_bytes(encoded([compact(1), compact(2)]))
+        self.count()
+        valid = json.loads(self.cache().read_text())
+        corruptions = [{'file_version': [1, 2]}, {'file_version': [True] * 5},
+                       {'partial_tail': True}, {'partial_tail': 0}, {'offset': valid['offset'] + 1}]
+        for changes in corruptions:
+            with self.subTest(changes=changes):
+                data = dict(valid, **changes)
+                data.pop('checksum')
+                data['checksum'] = M._checksum(data)
+                self.cache().write_text(json.dumps(data))
+                result, lines = self.jsonl_decodes(self.count)
+                self.assertEqual(result['observed_compactions'], 2)
+                self.assertEqual(len(lines), 2)
+
     def test_append_decodes_only_new_complete_lines_and_keeps_cross_segment_dedupe(self):
         no_id = {'type': 'compacted', 'payload': {'message': 'fallback key'}}
         ordinal = {'type': 'compacted', 'ordinal': 7, 'payload': {'message': 'ordinal'}}
@@ -119,6 +201,8 @@ class CachedContext(unittest.TestCase):
         previous = self.log.stat()
         self.log.write_bytes(changed)
         os.utime(self.log, ns=(previous.st_atime_ns, previous.st_mtime_ns))
+        self.assertEqual(self.log.stat().st_mtime_ns, previous.st_mtime_ns)
+        self.assertNotEqual(self.log.stat().st_ctime_ns, previous.st_ctime_ns)
         result, lines = self.jsonl_decodes(self.count)
         self.assertEqual(result['observed_compactions'], 1)
         self.assertEqual(len(lines), 2)
@@ -242,6 +326,9 @@ class CachedContext(unittest.TestCase):
     def test_transcript_changed_during_scan_does_not_publish_torn_cache(self):
         self.log.write_bytes(encoded([compact(1), compact(2)]))
         self.count()
+        # Force a scan; a genuinely unchanged file should take the stat shortcut.
+        with self.log.open('ab') as stream:
+            stream.write(encoded([{'type': 'response_item', 'payload': {}}]))
         original = M._scan
         calls = []
         def changed(*args, **kwargs):

@@ -44,3 +44,23 @@ All runs agreed on compaction count, malformed lines, and partial tails. The lar
 Text bytes are not measured model tokens or billed cost. No end-to-end latency reduction is claimed. The repository's tests exercise functional regressions and fake protocol servers; they are not a reproduction of these timing measurements.
 
 文本字节数不是模型 token 数或计费成本，本项目不据此声称端到端延迟下降。仓库测试覆盖功能回归与模拟协议服务，不等同于复现此处性能测量。
+
+## Retained local measurements · 保留的本地测量 — 2026-10-14
+
+The first audit compared its baseline and candidate snapshots on the same macOS machine with Python 3.9.6 and synthetic local files. Old/new runs were interleaved: ten function samples and five CLI samples for unchanged-log checks; five samples per version for first preparation. Values below are medians. These measurements precede the final second-audit metadata/error fixes; they are not a new alpha.18 release-archive benchmark.
+
+首轮审查在同一台 macOS、Python 3.9.6 上对比基线与候选快照，使用合成本地文件；新旧版本交替运行。未变日志检查每版函数 10 次、CLI 5 次；首次准备每版 5 次，以下取中位数。数据早于第二轮最终元数据/错误处理修复，不是 alpha.18 新 Release 压缩包的基准。
+
+| Scenario / 场景 | Baseline CLI / 基线 | Candidate CLI / 候选 | Interpretation / 含义 |
+|---|---:|---:|---|
+| Exactly unchanged 64 MiB log, cache hit / 完全未变 64 MiB 日志命中缓存 | 81.09 ms | 41.63 ms | Exact file-version reuse / 复用精确文件版本 |
+| First preparation, no history / 无历史的首次准备 | 106.71 ms | 106.92 ms | No speedup / 未加速 |
+| First preparation, 1,000 historical entries / 千条历史的首次准备 | 81.86 ms | 86.85 ms | No speedup / 未加速 |
+
+The unchanged-file fast path checks device/inode/size/mtime/ctime and the open file/path again before reuse. Changed, appended, replaced or truncated logs retain prefix validation or full-scan fallback; logs below 4 MiB still bypass caching. The second audit did not change this implementation. First preparation did not become faster in these samples, and the model/tool costs of carrying inline context were not measured.
+
+完全未变文件的快速路径校验 device/inode/size/mtime/ctime，并再次核对打开文件与路径。追加、替换、截断或修改仍走前缀核验或全扫描回退；4 MiB 以下仍跳过缓存。第二轮未修改这项实现。样本中的首次准备没有提速，内联上下文的模型/工具成本未测量。
+
+Final source validation passed 180 local regressions and 11 context/forward scenarios. Two orchestration runs passed 32 simulated branch checks and demonstrated a feasible two-call flow; a separate receiver-model trial verified local source-path and latest-decision behavior. No real sidebar handoff was created, and no whole-handoff, host-startup or model-latency timing was measured. Shorter rules or fewer tool boundaries do not establish an end-to-end speedup percentage.
+
+最终源码通过 180 项本地回归及 11 个接续情景；两轮编排共通过 32 次模拟分支检查，验证两轮调用流程可执行；独立模型接收者试用验证了本地来源路径与最新决定。没有创建真实 sidebar handoff，也未测量整次交接、宿主启动或模型延迟。主文更短、工具边界更少，不能据此推出端到端提速百分比。

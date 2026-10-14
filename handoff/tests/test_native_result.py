@@ -101,7 +101,30 @@ class NativeResult(unittest.TestCase):
     def test_disagreeing_payloads_cannot_select_a_destination(self):
         response = self.response({'threadId': 'one'})
         response['structuredContent'] = {'threadId': 'two'}
-        self.assertEqual(self.finish(response)['dispatch_state'], 'uncertain')
+        result = self.finish(response)
+        self.assertEqual(result['dispatch_state'], 'uncertain')
+        self.assertIsNone(result['destination'])
+        self.assertEqual(result['observed_destinations'], [{'threadId': 'two'}, {'threadId': 'one'}])
+        state = dispatch.read(Path(self.prepared['receipt']))
+        self.assertIn('two', state['resolution_note'])
+        self.assertIn('one', state['resolution_note'])
+        self.assertFalse(dispatch.claim(self.prepared['receipt'])['may_create'])
+
+    def test_error_with_identity_keeps_evidence_without_authoritative_destination(self):
+        result = self.finish({'isError': True, 'structuredContent': {'threadId': 'candidate', 'hostId': 'local'},
+                              'error': {'message': 'Service failed after possible creation'}})
+        self.assertEqual(result['dispatch_state'], 'uncertain')
+        self.assertEqual(result['observed_destinations'], [{'threadId': 'candidate', 'hostId': 'local'}])
+        self.assertIsNone(result['destination'])
+        self.assertIn('candidate', dispatch.read(Path(self.prepared['receipt']))['resolution_note'])
+
+    def test_ambiguous_identity_evidence_is_bounded_and_omits_unrelated_data(self):
+        response = {'isError': True, 'content': [{'type': 'text', 'text': json.dumps({
+            'threadId': str(i) + 'x' * 1000, 'secret': 'do not retain'})} for i in range(20)]}
+        result = self.finish(response)
+        self.assertEqual(len(result['observed_destinations']), 8)
+        self.assertTrue(all(len(item['threadId']) <= 200 for item in result['observed_destinations']))
+        self.assertNotIn('do not retain', Path(self.prepared['receipt']).read_text())
 
     def test_malformed_results_are_uncertain(self):
         for response in [None, {}, {'threadId': ''}, {'threadId': 3}, {'threadId': 'one', 'isError': 'false'},
