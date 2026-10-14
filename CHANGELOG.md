@@ -1,63 +1,57 @@
-# Changelog · 更新记录
+# 更新记录
 
-## 0.1.0-alpha.18 source · 源码 — 2026-10-14
+## 0.1.0-alpha.18 源码 — 2026-10-14
 
-Source update after two audit rounds. The published tag/archive remain alpha.17; this entry does not announce an alpha.18 GitHub Release, release archive or verified installation. / 两轮审查后的源码更新。已发布 tag/压缩包仍为 alpha.17；此条目不表示已创建 alpha.18 GitHub Release、压缩包或已验证安装。
+两轮审查后的源码更新。已发布标签与压缩包仍为 alpha.17；此条目不表示已创建 alpha.18 的 GitHub 发布页、发布压缩包或已验证安装。
 
-- Keep the normal native path in two orchestration calls: fresh project verification, then prepare → one create → parallel result recording and one startup snapshot. / 正常原生路径可用两轮工具编排：新鲜项目核实，再准备 → 一次创建 → 并行记录结果与一次启动快照。
-- Inline necessary context and the authorized next step. Preserve latest user decisions, unfinished/undecided work, shared resources and required evidence; 150–400 characters is a simple-task drafting reference, not a truncation limit. / 必要上下文与已授权下一步直接进入提示；保留最新用户决定、未做/未决事项、共享资源及必要证据，不因参考字数截断。
-- Carry the source cwd/path basis and existing output/archive locations into later explicit handoffs. Publish history before binding a new prompt; reject saved archive-binding conflicts before claim. / 续传来源 cwd/路径基准和既定输出/历史目录；先发布历史再绑定新提示，认领前拒绝已有归档绑定冲突。
-- Recover compatible old requests with unchanged packet, prompt and sidecar bytes; do not rewrite frozen older prompts to add metadata. / 兼容恢复逐字节保留旧包、提示与 sidecar，不为增加元数据改写已冻结提示。
-- Preserve the original App Server failure when receipt/runtime recording also fails, including any already-recorded destination; retain native returned errors and uncertain identities. / App Server 二次收据或运行记录失败不掩盖原始错误，保留已记录目的地；原生结果保留实际错误与不确定身份。
-- Retain the first audit's exact-file-version fast cache for unchanged logs, with prefix validation for changed files. The second audit did not alter that cache path or remove creation/receipt safeguards. / 保留首轮针对完全未变日志的精确版本快速缓存，文件变化仍核验旧前缀；第二轮未改该路径或删除创建/收据保护。
-- Validation: **180 local regressions**, **11 context/forward scenarios**, and two independent 16-branch orchestration runs (**32 branch checks**) passed. An independent receiver-model trial used the correct source file and latest JSON decision while preserving originals. Native creation/startup was simulated; no real sidebar handoff or end-to-end latency benchmark was performed. / **180 项本地回归、11 个接续情景、两轮共 32 次编排分支检查通过**；独立模型接收者实际使用正确来源与最新 JSON 决定并保留原件。原生创建/启动为模拟，未进行真实 sidebar handoff 或端到端延迟测量。
+- 正常原生路径可用两轮工具编排：新鲜项目核实，再准备 → 一次创建 → 并行记录结果与一次启动快照。
+- 必要上下文与已授权下一步直接进入提示；保留最新用户决定、未做与未决事项、共享资源及必要证据。简单任务可参考 150–400 个字，不以此截断必要内容。
+- 续传来源 `cwd`、路径基准和既定输出与历史目录；先发布历史再绑定新提示，认领前拒绝已有归档绑定冲突。
+- 兼容恢复逐字节保留旧包、提示与附属完整性记录，不为增加元数据改写已冻结提示。
+- App Server 二次收据或运行记录失败不掩盖原始错误，保留已记录目的地；原生结果保留实际错误与不确定身份。
+- 保留首轮针对完全未变日志的精确文件版本快速缓存，文件变化仍核验旧前缀；第二轮未改该缓存路径或删除创建与收据保护。
+- 验证：**180 项本地回归、11 个接续情景、两轮独立的 16 分支编排（共 32 次分支检查）通过**；独立模型接收者实际使用正确来源文件与最新 JSON 决定，并保留原件。原生创建与启动为模拟，未在侧栏创建真实交接对话，也未进行端到端延迟测量。
 
-## Earlier source updates · 较早源码更新 — 2026-10-02
+## 较早源码更新 — 2026-10-02
 
-- Support interactive handoff with workspace-only writes and manual or automatic MCP review; Full Access is optional.
-- Remove the native skill's policy preflight and its `--approval-policy` / `--sandbox-mode` preparation inputs. Save, claim once, invoke native creation and confirm startup without a second user handoff prompt. / 移除原生流程的独立审批预检与准备参数，直接完成保存、一次认领、创建和启动确认。
-- Record native ready/queued results and the known pre-execution approval-policy conflict. Preserve one invocation; ambiguous results cannot be recreated.
-- Remove the App Server adapter's independent rejection of `never`; preserve supported observed scalar policies (`on-request` or `never`) in both thread creation and turn startup, while retaining model, reviewer and sandbox checks. Unsupported policy shapes still require native dispatch. / 备用路径也移除对 `never` 的独立拦截，保留来源策略，不改变权限。
-- Explain effective-session versus saved configuration, read-only limits, permission recovery and unchanged alpha.17 release archives in both READMEs.
-- Synchronize the existing local minimal completed-task receiver and PDF context handling.
-- Preserve old unclaimed frozen requests and one-attempt recovery; retain a bounded actual error excerpt in native result receipts. / 兼容旧版未认领请求，保留防重复机制；收据保留工具实际报错，失败须说明具体阶段与创建状态。
-- Keep maintenance requests separate from live handoff, even with an attached skill; retain the original request while an unregistered directory is registered as a Local project. / 维护请求不误触发创建；缺少项目登记时说明真实原因并保留原交接意图。
-- Validation: 149 local regressions pass, including legacy prepared-receipt recovery, actual error retention, and simulated `never` creation/startup without approval responses. Skill schema validation passes. The previously recorded native Local creation/startup observation is historical; this maintenance run created no live successor. / 149 项本地测试及技能格式校验通过，覆盖旧收据恢复、实际错误保留及 `never` 模拟创建与启动；本次维护不创建真实接收对话。
+- 支持仅允许工作空间写入、采用人工或自动 MCP 审核的交互式交接；完整访问权限并非必需。
+- 移除原生流程的独立审批预检，以及 `--approval-policy`、`--sandbox-mode` 准备参数；直接完成保存、一次认领、原生创建和启动确认，无需用户第二次发送交接提示。
+- 记录原生返回的就绪、排队结果及已知的执行前审批策略冲突；保留同一次调用，结果不明时不重复创建。
+- App Server 备用路径也移除对 `never` 的独立拦截；创建对话和启动回合时保留已观察到、受支持的标量策略（`on-request` 或 `never`），同时保留模型、审核方和沙箱核对。不支持的策略形式仍须使用原生创建。
+- 在两个 README 中说明当前会话生效配置与已保存配置的区别、只读限制、权限恢复，以及 alpha.17 发布压缩包未变。
+- 同步既有本地版本中已完成任务的最小接收提示，以及 PDF 上下文处理。
+- 兼容旧版未认领的冻结请求和单次尝试恢复，保留防重复机制；原生结果收据保留有长度限制的实际错误片段，失败时说明具体阶段与创建状态。
+- 附带技能正文的维护请求也不误触发真实创建；未登记目录登记为 Local 项目期间，保留原交接请求，说明实际原因。
+- 验证：149 项本地回归及技能格式校验通过，覆盖旧版已准备收据恢复、实际错误保留，以及不发送审批响应的 `never` 模拟创建与启动。此前记录的原生 Local 创建与启动观察属于历史证据；本次维护未创建真实接收对话。
 
 ## 0.1.0-alpha.17 — 2026-09-29
 
-This release improves local project routing, retry recovery, and the cost of repeated preparation. The installed release passed **133 tests**, including storage, concurrency, routing, protocol simulations, and cache invalidation. Live model startup and complete desktop handoffs were not benchmarked in this release audit.
+本版完善 Local 项目定位、失败恢复和重复准备性能。安装后的版本通过 **133 项测试**，覆盖存储、并发、位置匹配、协议模拟和缓存失效。本轮发布审查未测量真实模型启动或完整桌面交接的耗时。
 
-本版完善 Local 项目定位、失败恢复和重复准备性能。安装后的版本通过 **133 项测试**，覆盖存储、并发、位置匹配、协议模拟和缓存失效。本轮发布审计未测量真实模型启动或完整桌面交接的耗时。
+### 修复
 
-### Fixed · 修复
+- 校验归档、快照目录和快照目的地的实际写入边界；拒绝越界并保留原链接。
+- 区分来源 `cwd` 与已保存 Local 项目的接收 `cwd`，支持从项目子目录正确接续。
+- 历史发布成功后再冻结新请求，避免不兼容的归档过早锁定本次调用；补充旧版已冻结失败的恢复流程。
+- RPC 的写入、读取和积压通知共用一个绝对截止时间。
+- App Server 备用路径传递并核验来源模型提供方及显式为空的工作空间根目录列表；未知配置不静默套用默认值。
+- 统一收据与后台进程的规范路径，拒绝会分裂认领的硬链接收据。
+- 跨提示渲染器升级的兼容重试保留已保存的接收提示，包括冻结请求前的历史发布失败。
+- 保留结构化回合错误用于诊断，客户端版本统一读取 `VERSION`。
 
-- Validate resolved archive, snapshot directory, and snapshot destination against the verified workspace. Preserve and reject an existing out-of-bounds link. / 校验归档和快照的实际写入边界，拒绝越界并保留原链接。
-- Distinguish source cwd from the saved Local project's receiving cwd, including nested-directory handoffs. / 区分来源 cwd 与接收项目根目录，支持从项目子目录正确接续。
-- Freeze a new request after history publication succeeds, so an incompatible archive does not prematurely lock the invocation. Document recovery for legacy frozen failures. / 历史发布成功后再冻结请求，补充旧版已冻结失败的恢复流程。
-- Enforce one absolute RPC deadline across writes, reads, and buffered notifications. / RPC 的写入、读取和积压通知共用绝对截止时间。
-- Preserve and verify the source model provider in App Server fallback, including explicit empty workspace roots. Unknown settings remain unsupported rather than silently defaulted. / 备用路径传递并核验模型 provider 及显式空 roots；未知配置不静默套用默认值。
-- Canonicalize receipt and worker identities; reject hard-linked receipts to avoid splitting a claim. / 统一收据与 worker 的规范路径，拒绝会分裂认领的硬链接收据。
-- Preserve the saved receiver prompt on compatible retries across renderer upgrades, including a history failure before request freeze. / 兼容重试保留已保存的接收提示，包括冻结请求前的历史失败。
-- Keep structured turn errors for diagnosis and take client version from `VERSION`. / 保留结构化回合错误，客户端版本统一读取 `VERSION`。
+### 重复操作减负
 
-### Faster repeated work · 重复操作减负
+- 先筛选项目再查 Git；100 个目录的合成场景从 100 次 Git 调用降为 1 次。
+- 相同内容和已登记目录记录跳过重复写入，同时保留必要的目录同步与缺失索引恢复。
+- 启用提醒状态时，4 MiB 及以上日志使用经核验的扫描检查点；先重新核验完整旧前缀，再解析追加的完整行。
+- 新增可选的 `prepare_handoff.py --compact` 输出，精简正常路径的技能入口。
 
-- Filter the project inventory before probing Git; the 100-root synthetic case uses one Git probe instead of 100. / 先筛选项目再查 Git；100 个目录的合成场景从 100 次调用降为 1 次。
-- Skip rewriting identical content and already registered catalog entries, while preserving required directory synchronization and missing-index recovery. / 相同内容和已登记记录跳过重复写入，同时保留必要同步与索引恢复。
-- Use checked scan checkpoints for transcripts of at least 4 MiB when advisory state is enabled. Revalidate the full old prefix before decoding new complete lines. / 启用提醒状态时，4 MiB 及以上日志使用扫描检查点；先核验旧前缀，再解析追加完整行。
-- Add opt-in `prepare_handoff.py --compact` and shorten the normal skill entrypoint. / 新增推荐的 `--compact` 输出，精简正常路径的技能入口。
+参见[测量结果与边界](docs/benchmarks.md)；首次准备与小日志扫描在本次样本中**没有提速**。
 
-See [measured results and limitations](docs/benchmarks.md). First preparation and small transcript scans did **not** improve in these measurements. / 参见[测量结果与边界](docs/benchmarks.md)；首次准备与小日志扫描在本次样本中**没有提速**。
-
-### Compatibility · 兼容
-
-Existing Python call signatures and default CLI creation fields remain available. `destination_workspace`, `model`, and `thinking` are optional preparation fields; explicit model choices are passed to the native creation tool. `--compact` only removes duplicated legacy top-level creation fields from stdout. Existing packet/history files are retained.
+### 兼容
 
 原 Python 调用方式与默认 CLI 创建字段继续保留。`destination_workspace`、`model` 和 `thinking` 为可选准备字段；明确选择的模型参数会传给原生创建工具。`--compact` 仅省去 stdout 中重复的旧顶层创建字段。原交接包和历史文件保持保留。
 
-### Development · 开发记录
+### 开发记录
 
-The maintainer reports one month of intensive personal use and debugging. This release was developed and reviewed using **GPT-6 Astra with the Ultra (`ultra`) setting in Codex and multiple Astra agents**, including independent checks of failure recovery and upgrade compatibility. The maintainer calls this process **“众神指导” — “Guided by the gods.”** This describes the development process for the skill, not a newly trained foundation model or an OpenAI certification.
-
-作者已在自己的工作流中高强度使用并 debug 一个月。本版通过 **GPT-6 Astra（Codex 中的 Ultra／`ultra` 设置）与多个 Astra agent** 协作完善，包含独立的失败恢复与升级兼容复核。作者将这一过程称为 **“众神指导”**。这里指技能的开发与评审方式，不是训练了新的基础模型，也不代表 OpenAI 官方认证。
+作者已在自己的工作流中高强度使用并调试一个月。本版通过 **GPT-6 Astra（Codex 中的 Ultra／`ultra` 设置）与多个 Astra 代理**协作开发与评审，包含独立的失败恢复与升级兼容复核。作者将这一过程称为 **“众神指导”**。这里指技能的开发与评审方式，不是训练了新的基础模型，也不代表 OpenAI 官方认证。

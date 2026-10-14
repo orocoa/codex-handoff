@@ -1,34 +1,34 @@
-# Project continuity at a user-requested handoff
+# 用户请求交接时的项目连续性
 
-Combine a focused next-task packet with persistent, inspectable project history. Run this preparation as part of the direct handoff workflow when the user explicitly selects the skill or invokes `$handoff`. No separate operation text is needed. It is not an always-on memory collector.
+将聚焦下一步任务的交接包与持久保留、可查阅的项目历史结合。用户显式选择本技能或调用 `$handoff` 时，把这项准备工作作为直接交接流程的一部分执行。无需额外操作文字。它不是始终运行的记忆采集器。
 
-## Recover and update
+## 恢复与更新
 
-1. Look for existing project handoff or decision documents at known locations first: `AGENT_HANDOFF.md`, `HANDOFF.md`, `docs/handoffs/`, and the workspace's output/handoff directory. Reuse the applicable scheme; do not install a competing project framework or rewrite unrelated AGENTS.md rules.
-2. Read the latest relevant state and follow selected decision/evidence references. Preserve why the approach was chosen, not just the latest task list. Do not rescan all old transcripts or all project files. A newer summary does not automatically cancel an older user decision.
-3. Build the current packet with objective, completed/in-progress/blocked state, decisions and reasons, open questions, evidence, verification, workspace state and next actions. Record a changed decision only with the real user source or label it a proposal. Preserve rejected alternatives only when useful to the continuation goal.
-4. Reconcile stale statements against actual files and this conversation. Keep old snapshots as history and put corrections in a new snapshot; do not rewrite old evidence to make it agree with the current answer. Unknown or inaccessible evidence stays unknown.
+1. 先在已知位置查找已有的项目交接或决定文档：`AGENT_HANDOFF.md`、`HANDOFF.md`、`docs/handoffs/`，以及工作空间的输出/交接目录。复用适用的方案；不要安装相互竞争的项目框架，也不要改写无关的 AGENTS.md 规则。
+2. 读取最新的相关状态，并按选定的决定/证据引用查阅。保留选择该方案的原因，而不只是最新任务清单。不要重新扫描所有旧对话记录或全部项目文件。较新的摘要不会自动取消较早的用户决定。
+3. 编写当前交接包，包含目标、已完成/进行中/受阻状态、决定及原因、未决问题、证据、验证情况、工作空间状态和下一步动作。只有真实用户来源支持时才记录决定变更，否则标为提议。仅在有助于接续目标时保留已否决的替代方案。
+4. 根据实际文件和本次对话核对过时的陈述。保留旧快照作为历史，将更正写入新快照；不要改写旧证据来迎合当前答案。未知或无法访问的证据仍保持未知。
 
-## Persistence without a memory service
+## 不依赖记忆服务的持久保存
 
-If the project already has a maintained handoff index, add the new packet by that scheme and preserve its manual content. Honor an existing designated location. Without one, put preparation files under the verified project root’s `work/handoffs/`, and history under that output directory’s `history/`. An established `docs/handoffs/` or `outputs/handoffs/` archive remains valid; pass it explicitly as `history_dir` rather than starting a second archive. Keep this archive tied to the original project and pass its absolute path to later tasks so each new task does not create a disconnected archive.
+如果项目已有持续维护的交接索引，按现有方案加入新交接包，并保留其中的手写内容。沿用已有指定位置。没有指定位置时，将准备文件放在已核实项目根目录的 `work/handoffs/` 下，将历史放在该输出目录的 `history/` 下。已有的 `docs/handoffs/` 或 `outputs/handoffs/` 归档仍然有效；将其显式传为 `history_dir`，不要另建第二份归档。保持归档与原项目关联，并把绝对路径传给后续任务，避免每个新任务都创建一份互不关联的归档。
 
-After the packet is written, use the bundled helper with explicit arguments:
+交接包写好后，使用明确参数调用随附的辅助脚本：
 
 ```text
 python3 <skill-dir>/scripts/history.py --archive <project-history-directory> --packet <packet.md> --packet-id <unique-stable-id> --title <meaningful-title> --source-thread <actual-task-id>
 ```
 
-The helper retains the original packet, saves an immutable historical snapshot, keeps a complete catalog, and limits the generated index to eight recent links. It never discards historical snapshots. Same-ID/same-content retries are idempotent; a changed packet needs a new ID. It refuses to overwrite a manual index. If that occurs before the request is frozen or claimed, keep the invocation/output identity and choose a distinct history subdirectory; do not delete the manual document. For an older frozen request, use the pre-claim recovery in dispatch.md. Never amend an already claimed request to bypass a conflict.
+辅助脚本保留原交接包，保存不可变的历史快照，维护完整目录清单，并将生成的索引限制为最近八个链接。它从不丢弃历史快照。同 ID、同内容的重试是幂等的；交接包内容变化后需要新 ID。它拒绝覆盖手写索引。如果在请求冻结或认领前遇到这一情况，保留本次调用/输出的身份信息，选择另一个历史子目录；不要删除手写文档。对于较早的已冻结请求，使用 dispatch.md 中的认领前恢复流程。绝不要修改已认领的请求来绕过冲突。
 
-Snapshots are written privately to a temporary file, synced, then published without replacing an existing file. If catalog or generated index writing fails, retry the same command: a complete snapshot can be registered and the generated index rebuilt. A killed process may leave a hidden temporary file; keep it for diagnosis. If an older version left a partial final snapshot, preserve it and use a new packet ID with a correction note, or ask the user before moving/deleting the conflict. Do not silently overwrite it. The archive is local history, not a portable backup; packet references and catalog metadata can contain absolute paths.
+快照以私有方式写入临时文件，同步后发布，不替换已有文件。如果目录清单或生成索引写入失败，重试同一命令：完整快照可以重新登记，生成索引也可以重建。被终止的进程可能留下隐藏临时文件；保留它以便诊断。如果旧版本留下了不完整的最终快照，保留该文件，使用新交接包 ID 并附更正说明，或在移动/删除冲突文件前询问用户。不要静默覆盖它。归档是本地历史，不是可移植备份；交接包引用和目录清单元数据可能包含绝对路径。
 
-This provides history navigation and index compaction, not a guarantee that every past conversation detail was captured. Substantive reasons and references must be present in the packet itself. Existing important decision documents remain the place to verify project rules.
+这提供历史导航和索引压缩，不保证捕获过去对话的每个细节。交接包本身必须包含实质性理由和引用。核实项目规则时，仍应查阅已有的重要决定文档。
 
-## Before automatic dispatch
+## 自动派发前
 
-Verify the packet, required referenced paths, archive index and receipt. Then follow SKILL.md to create the successor directly in the same invocation. The user should not need to send another “now create it” message or copy a startup prompt. A standalone skill selection or `$handoff` already requests this creation. Do not offer separate saving, updating or checking modes; those are preparation steps before dispatch.
+核实交接包、必要的引用路径、归档索引和收据。然后按 SKILL.md 在同一次调用中直接创建接续对话。用户不应再发送一条“现在创建”消息，也不应需要复制启动提示。单独选择技能或 `$handoff` 就已请求创建。不要提供独立的保存、更新或检查模式；这些都是派发前的准备步骤。
 
-The receiver reads the packet and the relevant project-history references, checks current workspace state, and performs the authorized next step. The source reports its substantive outcome and the new task link. The receiver must not automatically repeat handoff.
+接收端读取交接包和相关项目历史引用，检查当前工作空间状态，并执行已授权的下一步。来源端报告实质性结果以及新任务链接。接收端不得自动重复 handoff。
 
-The actual snapshot directory must remain inside the verified workspace (or the archive for standalone history calls). Existing links within that boundary may be used; links outside it are rejected without moving or removing them. Identical retries skip temporary writes/catalog replacement while retaining directory synchronization and missing-index repair.
+实际快照目录必须留在已核实的工作空间内（独立调用历史脚本时则留在归档内）。可以使用该边界内的已有链接；边界外的链接会被拒绝，不移动或删除它们。相同内容的重试跳过临时写入/目录清单替换，同时保留目录同步和缺失索引修复。

@@ -1,51 +1,51 @@
-# Same Local project and task naming
+# 同一 Local 项目与任务命名
 
-This skill creates a fresh conversation in the same saved Local project directory. There are no directory-mode choices or code-transfer workflows.
+本技能在同一已保存的 Local 项目目录中新建对话。不提供目录模式选择或代码转移流程。
 
-## Resolve before dispatch
+## 派发前解析目标
 
-1. Read the actual current task ID, host and cwd, then fetch the saved Project inventory for every creation, including non-Git directories: native `list_projects` when callable, otherwise documented App Server `project/list` per [app-server-fallback.md](app-server-fallback.md).
-2. Match the verified source Project ID in that fresh inventory, or use canonical path matching on the same host: exact path first, otherwise the unique deepest containing project root. Same-name projects and similar path prefixes are not interchangeable. A failed listing is not an empty verified inventory.
-3. Verify that the source is inside that same Local project. A missing historical directory triggers location recovery below, not an immediate blocker. For Git, compare `git rev-parse --show-toplevel` with the current saved project root as well; an unrelated nested repository is not the same checkout. Project association alone is insufficient.
-4. For native creation set `target: {type: project, projectId: <verified ID>, environment: {type: local}}`. For App Server creation pass the verified `projectId` and canonical on-device `cwd` to `thread/start`; verify both in its response or `thread/read`. Do not add branch, starting-state, worktree or projectless options. Do not create a fork.
-5. After attempting location recovery, if the Project is still missing, ambiguous or does not contain the current implementation, save useful records and report the specific Local prerequisite or mismatch. Do not silently switch to older project files, invent an ID or create an alternate directory. This is an actual scope problem, not a reason to routinely ask the user to choose between modes.
+1. 读取真实的当前任务 ID、所在主机和 cwd，然后在每次创建前获取已保存项目清单，包括非 Git 目录：原生 `list_projects` 可调用时使用它，否则按 [app-server-fallback.md](app-server-fallback.md) 使用有文档支持的 App Server `project/list`。
+2. 在这份新鲜清单中匹配已核实的来源项目 ID，或在同一主机上按规范路径匹配：优先精确路径，否则选唯一且包含来源的最深项目根目录。同名项目和前缀相似的路径不能互换。获取清单失败不等于已核实的空清单。
+3. 核实来源位于同一个 Local 项目内。历史目录缺失时进入下文的位置恢复流程，不立即视为阻塞。对于 Git，还要将 `git rev-parse --show-toplevel` 与当前已保存项目根目录比较；无关的嵌套仓库不是同一个 checkout。仅有项目关联还不够。
+4. 原生创建时设置 `target: {type: project, projectId: <verified ID>, environment: {type: local}}`。App Server 创建时，将已核实的 `projectId` 和规范化的本机 `cwd` 传给 `thread/start`；在其响应或 `thread/read` 中核实两者。不要添加 branch、starting-state、worktree 或 projectless 选项。不要创建 fork。
+5. 尝试位置恢复后，如果项目仍缺失、存在歧义或不包含当前实现，保存有用记录，并报告具体的 Local 前提缺失或不匹配。不要静默切换到旧项目文件、编造 ID 或创建替代目录。这是真实的范围问题，不是经常要求用户在模式之间选择的理由。
 
-An unregistered projectless directory has no saved Project ID for this workflow. Explain the missing registration once and ask only for the location decision needed to continue; do not describe it as an approval rejection. If the user chooses to register the current directory, retain that choice and the original handoff request. After registration is confirmed in fresh project records, continue that request without another `$handoff`. Paths quoted in attachments or historical conversations do not establish the current source Project or authorize moving the handoff there.
+尚未登记的 projectless 目录在本流程中没有已保存的项目 ID。说明一次登记缺失，只询问继续所需的位置决定；不要将其描述为审批拒绝。如果用户选择登记当前目录，保留该选择和原交接请求。在新鲜项目记录中确认登记后，继续原请求，不要求再次 `$handoff`。附件或历史对话中引用的路径不能确立当前来源项目，也不授权将交接移到那里。
 
-## Recover an updated directory
+## 恢复已更新的目录位置
 
-An earlier packet, source environment or failed handoff may remember a directory that no longer exists. Treat that as stale location evidence, not proof that the project is unavailable.
+较早的交接包、来源环境或失败的交接可能记着一个已不存在的目录。将其视为过时的位置证据，而不是项目不可用的证明。
 
-1. Use a fresh Project inventory for this invocation. Inspect only plausible current locations already evidenced by this task's actual cwd, a verified canonical workspace, an explicit user path or the provider's current project records. Do not search the whole disk for a matching folder name.
-2. If the same verified Project ID now has a new path, verify that it exists and contains the task's current implementation. Resolve symlinks and, for Git, compare the actual checkout root. Use the updated path for preparation, explicit shell working directories and receiver verification; do not require the vanished old path to reappear.
-3. If the inventory still has the vanished path, refresh it once. A unique current saved-project root that matches the observed actual workspace is also usable through canonical matching. If a stale source ID is no longer the association, record why canonical matching identifies the current saved project instead of passing that stale ID to the resolver. A same-name folder, a matching remote URL, or a similar path alone is insufficient; another worktree is not a relocation.
-4. Record the old path, newly verified path, real current Project ID and matching evidence in the packet. This resolves the location without copying files, creating a symlink, changing global configuration or requesting another approval for an already verified update.
-5. If the actual workspace is found but no current saved project points to it, native creation still has no valid target. Preserve the summary and report that precise registration mismatch. Do not forge the inventory or choose a projectless/worktree destination. If two plausible locations remain, report the ambiguity rather than guessing.
+1. 本次调用使用新鲜项目清单。只检查已有证据支持的合理当前位置，证据来自本任务实际 cwd、已核实的规范工作空间、用户明确指定的路径或提供方当前项目记录。不要扫描整个磁盘来寻找同名文件夹。
+2. 如果同一个已核实项目 ID 现在对应新路径，核实它存在并包含本任务的当前实现。解析符号链接；对于 Git，比较实际 checkout 根目录。准备、显式 shell 工作目录和接收端核实时使用更新后的路径；不要要求已消失的旧路径重新出现。
+3. 如果清单仍包含已消失的路径，刷新一次。与已观察到的实际工作空间匹配的唯一当前已保存项目根目录，也可以通过规范路径匹配使用。如果过时的来源 ID 已不再对应当前关联，记录为何规范路径匹配识别出当前已保存项目，而不要将过时 ID 传给解析器。仅有同名文件夹、匹配的远程 URL 或相似路径还不够；另一个 worktree 不等于位置迁移。
+4. 在交接包中记录旧路径、新核实的路径、真实当前项目 ID 和匹配证据。这样即可解决位置问题，无需复制文件、创建符号链接、修改全局配置，也无需为已核实的更新再次请求审批。
+5. 如果找到了实际工作空间，但没有当前已保存项目指向它，原生创建仍没有有效目标。保留摘要，并准确报告该登记不匹配。不要伪造清单，也不要选择 projectless/worktree 目的地。如果仍有两个合理位置，报告歧义，不要猜测。
 
-Run `resolve_target.py` with the recovered, observed workspace and the fresh inventory, not the absent historical cwd. Its existing canonical-path and checkout checks validate the new destination. The planner is read-only and cannot repair provider metadata itself.
+使用已恢复、实际观察到的工作空间和新鲜清单运行 `resolve_target.py`，不要使用已不存在的历史 cwd。其已有的规范路径和 checkout 检查用于验证新目的地。规划器只读，不能自行修复提供方元数据。
 
-`scripts/resolve_target.py` is a read-only planner for the fresh decoded `list_projects` JSON. It always resolves to `project/local`, or returns unresolved. It does not create tasks, register projects, copy files or change Git state. Pass `--verified-source-project-id` only with actual source-task evidence. `source_workspace` is the actual source cwd; `expected_cwd` is the matched saved project root. Pass both to preparation as `workspace` and `destination_workspace`. Do not replace one with the other, even for a legitimate nested source directory. The planner checks actual directory existence and probes Git only for the selected candidate/source, after complete inventory matching. A nested repository is rejected even when its saved container is marked non-Git.
+`scripts/resolve_target.py` 是针对新鲜解码后的 `list_projects` JSON 的只读规划器。它始终解析为 `project/local`，或返回 unresolved。它不创建任务、登记项目、复制文件或改变 Git 状态。只有真实来源任务证据支持时才传 `--verified-source-project-id`。`source_workspace` 是实际来源 cwd；`expected_cwd` 是匹配到的已保存项目根目录。准备时分别将两者传为 `workspace` 和 `destination_workspace`。即使来源确为合法的嵌套目录，也不要用一个替换另一个。规划器完成全部清单匹配后，才检查实际目录是否存在，并且只对选中的候选/来源探查 Git。即使其已保存的上层容器被标记为非 Git，也会拒绝嵌套仓库。
 
 ```text
 python3 <skill-dir>/scripts/resolve_target.py --projects-json <fresh-projects.json> --workspace <actual-directory> --host-id local --topic '最终模型核对' --stamp 20260913-1300
 ```
 
-Record the exact target/title and matching evidence in the immutable packet. The preparation output `create_args` carries these values and any explicitly user-selected model/thinking overrides into `create_thread`; otherwise omit model overrides. Unresolved plans must not dispatch.
+在不可变交接包中记录准确的 target/title 和匹配证据。准备输出中的 `create_args` 将这些值以及用户明确选择的 model/thinking 覆盖参数传给 `create_thread`；否则省略模型覆盖参数。尚未解决的计划不得派发。
 
-## Continue existing files
+## 接续现有文件
 
-Keep the current code, uncommitted/untracked files, assets and environment in place. Record relevant file state, shared changes and active processes; do not package and restore the project simply to change conversations. The source stops executing the transferred objective after dispatch. The receiver verifies the current files and continues immediately within existing authorization, preserving other tasks' changes. Do not stop or take over other tasks or processes automatically.
+将当前代码、未提交/未跟踪文件、资源和环境留在原处。记录相关文件状态、共享改动和活动进程；不要仅为切换对话就打包并恢复项目。派发后，来源端停止执行已转交的目标。接收端核实当前文件，在已有授权范围内立即继续，并保留其他任务的改动。不要自动停止或接管其他任务或进程。
 
-Task archiving is separate from moving/deleting folders. Preserve source files and handoff history; do not automatically archive the source task, commit, merge, synchronize or migrate project files.
+任务归档与移动/删除文件夹是不同操作。保留来源文件和交接历史；不要自动归档来源任务，也不要自动提交、合并、同步或迁移项目文件。
 
-## Title
+## 标题
 
-Use `项目名 · 目标简称 · 接续 YYYYMMDD-HHmm`, using the verified Project label and the fixed preparation time in the user's timezone. Honor an explicit user title or naming convention. Preserve the title on retries; do not derive a handoff counter from unrelated project history.
+使用 `项目名 · 目标简称 · 接续 YYYYMMDD-HHmm`，其中项目名取已核实的项目名称，时间取用户时区中固定的准备时间。遵循用户明确指定的标题或命名约定。重试时保留标题；不要从无关项目历史推导交接次数。
 
-## Verify the receiving task
+## 核实接收任务
 
-Persist returned IDs using the existing receipt protocol, then take a bounded status snapshot. Verify available Project/cwd metadata; expected cwd is the matched saved project directory. The receiver confirms its actual cwd against the packet’s destination cwd (not a nested source cwd) and compares Project metadata if already available; do not query its own task or the Project list merely to repeat the sender's matching. Check relevant current file state and any explicitly required check before dependent use/writes, and report concrete mismatches. No general intake audit or manifest is required. On a match, execute the next authorized action toward the recorded completion criteria without asking whether to continue.
+按已有收据协议持久保存返回的 ID，然后获取一次有界的状态快照。核实可用的项目/cwd 元数据；预期 cwd 是匹配到的已保存项目目录。接收端将实际 cwd 与交接包中的目的地 cwd 比较（不是嵌套的来源 cwd），并在项目元数据已可用时进行比较；不要仅为重复发送端的匹配而查询自己的任务或项目清单。在依赖使用/写入前，检查相关文件的当前状态及所有明确要求的检查，并报告具体不匹配。不要求通用接收审计或清单。匹配时，按记录的完成标准执行已授权的下一步，不询问是否继续。
 
-If metadata is not exposed, state what is verified and leave actual cwd verification to the receiver; do not claim inspection. If placement is wrong, report the difference and stop dependent writes. Do not duplicate the task, redirect work to a second directory, or treat title/sidebar changes as cwd repair. Keep independent useful work moving within actual access constraints.
+如果未暴露元数据，说明已核实的内容，并将实际 cwd 核实交给接收端；不要声称已检查。如果位置错误，报告差异并停止依赖写入。不要复制任务、把工作重定向到第二个目录，也不要把修改标题/侧边栏视为 cwd 修复。在实际访问限制内继续独立且有用的工作。
 
-Editing or testing this skill does not authorize creation of a real receiving task.
+编辑或测试本技能不授权创建真实接收任务。

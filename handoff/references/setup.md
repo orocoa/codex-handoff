@@ -1,78 +1,80 @@
-# Codex desktop scope and local setup
+# Codex 桌面端适用范围与本地设置
 
-This skill is for Codex desktop with shared access to the source files. It prefers native task tools; when absent, the documented Codex App Server protocol can create a project-aware Local thread as described in [app-server-fallback.md](app-server-fallback.md). macOS is the tested platform. Python 3.9+ is required for bundled helpers; they use POSIX `fcntl` locking. Windows and remote/cross-device task transfer are not supported by this tested configuration. Do not emulate desktop tasks with a standalone CLI or `codex exec` process.
+本技能用于可共享访问来源文件的 Codex 桌面端。优先使用原生任务工具；工具缺失时，可按 [app-server-fallback.md](app-server-fallback.md)，通过已公开的 Codex App Server 协议创建归属项目的 Local 任务。已测试平台为 macOS。随附助手需要 Python 3.9+，使用 POSIX `fcntl` 加锁。此已测试配置不支持 Windows，也不支持远程或跨设备任务转移。不要用独立 CLI 或 `codex exec` 进程模拟桌面端任务。
 
-Install the complete `handoff/` directory in the user's configured Codex skills directory. Do not replace an existing directory without inspecting it. Start a fresh task or refresh skill discovery if necessary. In a supported saved Local project, select **Codex 任务交接** or send `$handoff` alone to prepare the handoff and start one new conversation there; no additional operation or confirmation is needed. If that destination cannot be verified or created, the skill reports the blocker instead of claiming success. `$handoff 帮我交接` remains equivalent. There are no separate record-only modes. Ordinary mentions and quoted examples do not activate this skill. This policy does not redefine unrelated native Codex task-management commands.
+将完整 `handoff/` 目录安装到用户配置的 Codex 技能目录。未经检查不要替换已有目录。必要时开始新任务或刷新技能发现。在受支持的已保存 Local 项目中，选择 **Codex 任务交接** 或单独发送 `$handoff`，即可准备交接并在该项目启动一个新对话；无需补充操作或确认。若无法核验或创建目的地，技能会报告阻碍，不会声称成功。`$handoff 帮我交接` 仍等效。没有独立的仅记录模式。普通提及和引用示例不会激活本技能。此策略不重新定义无关的原生 Codex 任务管理命令。
 
-## Permissions and recovery
+<a id="permissions-and-recovery"></a>
 
-Full Access is not a skill requirement. Filesystem access and MCP approval are separate controls. Native handoff needs a writable packet/history/receipt directory inside the verified project, access to the native task tools, and permission to execute those tools. A saved `config.toml` does not establish the current turn's policy. Native preparation does not inspect either setting; consult effective permissions only to diagnose an actual returned failure. The Full Access preset uses `danger-full-access` plus `never`; it is not the Auto-review preset. A correctly saved `on-request` / `auto_review` configuration can therefore coexist with an active chat that still reports `never`. Changing the saved file again does not establish a change in that active chat.
+## 权限与恢复
 
-| Effective mode | Handoff behavior |
+Full Access 不是技能要求。文件系统访问和 MCP 审批是两种独立控制。原生交接需要已核实项目内可写的交接包/历史/收据目录、原生任务工具访问权限，以及执行这些工具的权限。已保存的 `config.toml` 不能证明当前轮次的策略。原生准备不会检查这两种设置；只有诊断实际返回的失败时，才查看生效权限。Full Access 预设使用 `danger-full-access` 加 `never`；它不是 Auto-review 预设。因此，正确保存的 `on-request` / `auto_review` 配置，可以与仍报告 `never` 的活跃对话并存。再次修改保存文件不能证明该活跃对话的权限已改变。
+
+| 生效模式 | 交接行为 |
 | --- | --- |
-| `workspace-write` + `on-request`, reviewer `user` | Save inside the writable project and use the normal native tool approval if required. Full Access is unnecessary. |
-| `workspace-write` + `on-request`, reviewer `auto_review` | Same file boundary; eligible MCP requests can go through automatic review. Approval is not guaranteed. |
-| `workspace-write` + `never` | Save and claim one native attempt; invoke the tool rather than preemptively stopping. The host executes allowed tools and rejects tools that require unavailable approval. |
-| `read-only` | The complete workflow needs scoped permission for project writes plus native tool permission. Without those, packet preparation cannot complete. Do not silently write elsewhere or switch to Full Access. |
-| Full Access | Removes the filesystem boundary; separate tool, managed-policy or access restrictions may still apply. Do not treat it as a universal success guarantee. |
+| `workspace-write` + `on-request`，审核者 `user` | 保存到可写项目内；需要时使用正常原生工具审批。无需 Full Access。 |
+| `workspace-write` + `on-request`，审核者 `auto_review` | 文件边界相同；符合条件的 MCP 请求可进入自动审核。不能保证获批。 |
+| `workspace-write` + `never` | 保存并认领一次原生尝试；调用工具，不要提前停止。主机会执行允许的工具，拒绝需要但无法获得审批的工具。 |
+| `read-only` | 完整流程需要项目写入的限定权限和原生工具权限。缺少这些权限时，交接包准备无法完成。不要悄悄写到别处或切换为 Full Access。 |
+| Full Access | 移除文件系统边界；独立的工具、托管策略或访问限制仍可能生效。不要将其视为普遍成功保证。 |
 
-For an interactive setup, a user can select **Ask for approval** or **Approve for me / Auto-review** in the app's permissions control. Enabling a mode in settings alone does not select it for an existing chat. An optional persistent user configuration is:
+需要交互式设置时，用户可在应用的权限控件中选择 **Ask for approval** 或 **Approve for me / Auto-review**。仅在设置中启用某模式，不会为已有对话选择该模式。可选的持久用户配置如下：
 
 ```toml
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
-approvals_reviewer = "auto_review" # Use "user" for manual approval instead.
+approvals_reviewer = "auto_review" # 改用 "user" 可手动审批。
 ```
 
-These are setup choices, not settings the skill changes as a side effect. Reload/select the effective permissions before recovery. Organization requirements may constrain the choices. Codex also documents per-tool MCP/plugin approval overrides; use only the host's verified tool identity and supported controls if the user explicitly requests such an override. Do not invent a server/plugin ID, approve all tools, or claim a local override defeats managed requirements.
+这些是设置选择，不是技能会顺带修改的设置。恢复前，重新加载或选择实际生效权限。组织要求可能限制可选项。Codex 也提供按工具设置 MCP/插件审批覆盖的文档；只有用户明确要求此类覆盖时，才使用主机已核实的工具身份和受支持控件。不要编造服务器/插件 ID、批准所有工具，或声称本地覆盖能绕过托管要求。
 
-Native handoff does not set an approval policy. The optional App Server adapter preserves the observed supported scalar policy (`on-request` or `never`) and verifies that the new task returns the same setting; it does not require enabling approvals or silently change permissions. Missing, retired or granular policy shapes that this adapter cannot preserve require the native path. See the [official App Server thread/start example](https://learn.chatgpt.com/docs/app-server), which uses `never`.
+原生交接不设置审批策略。可选 App Server 适配器保留实际观察到的受支持标量策略（`on-request` 或 `never`），并核验新任务返回相同设置；它不要求启用审批，也不会悄悄更改权限。缺失、已停用或适配器无法保留的细粒度策略格式，需要原生路径。参见使用 `never` 的[官方 App Server thread/start 示例](https://learn.chatgpt.com/docs/app-server)。
 
-The native path has no skill-level approval preflight. Invoke `prepare_handoff.py --compact` with the verified project and summary; preparation takes no approval-policy or sandbox-mode input. A fresh receipt claim permits one native creation call in the same turn, followed by startup confirmation. The native host enforces its own actual permissions. Do not stop after saving or require a second handoff prompt. Already queued/created/dispatching/uncertain operations cannot be recreated. Recover an old unclaimed prepared receipt from its same frozen request; no new invocation is needed. Permission/access denials are handled only after the tool actually returns them; report the observed reason and do not bypass them. Older callers must remove the retired `--approval-policy` / `--sandbox-mode` flags (or corresponding Python keyword arguments). Existing flat frozen requests remain byte-identical; new requests use a v2 envelope binding the receiver prompt digest. Either supported format can be submitted directly as preparation stdin. See [prompt integrity and legacy recovery](dispatch.md#frozen-request-and-prompt-integrity).
+原生路径没有技能级审批预检。将已核实项目和摘要传给 `prepare_handoff.py --compact`；准备过程不接收 approval-policy 或 sandbox-mode 输入。新的收据认领允许同轮一次原生创建调用，随后确认启动。原生主机执行自身实际权限限制。不要保存后停止，也不要要求第二条交接提示。已有 queued/created/dispatching/uncertain 操作不能重新创建。旧的尚未认领 prepared 收据应从同一冻结请求恢复；无需新调用。只有工具实际返回权限/访问拒绝后才处理，报告观察到的原因，不绕过拒绝。旧调用者必须移除已停用的 `--approval-policy` / `--sandbox-mode` 参数（或相应 Python 关键字参数）。现有扁平冻结请求保持字节不变；新请求使用绑定接收提示哈希值的 v2 封装。两种受支持格式都可直接作为准备 stdin。参见[提示完整性与旧版恢复](dispatch.md#frozen-request-and-prompt-integrity)。
 
-Normal preparation writes only inside the project, not under the installed skill or global `~/.codex` state. If the source cwd is a nested directory and only that subtree is writable, choose its `work/handoffs` before freezing the request while keeping the verified saved-project root as `destination_workspace`. Do not move a frozen invocation to another directory to evade an access failure. Protected `.codex`, `.git` and `.agents` directories are unsuitable output locations.
+正常准备只写入项目内，不写入已安装技能或全局 `~/.codex` 状态。若来源 cwd 是嵌套目录且只有该子树可写，在冻结请求前选择其中的 `work/handoffs`，同时保留已核实的保存项目根目录为 `destination_workspace`。不要为避开访问失败，将冻结调用移到另一目录。受保护的 `.codex`、`.git` 和 `.agents` 目录不适合作为输出位置。
 
-When the native tool reports exactly **MCP tool call requires approval, but approval policy is never**, `native_result.py` records the proven pre-execution rejection as `failed` and explains the conflict. It preserves the packet and invocation and does not issue a retry claim. After a verified, user-authorized effective permission change, submit the original saved `.request.json` to `prepare_handoff.py`; only a new `may_create: true` allows one retry. For a denial, timeout, unknown error, malformed result or returned identity mixed with an error, the helper records `uncertain`; reconcile with native task evidence instead. Do not use the App Server fallback, CLI, a different tool or UI to bypass an approval/access denial. That fallback applies only when native capability is genuinely unavailable.
+当原生工具准确报告 **MCP tool call requires approval, but approval policy is never** 时，`native_result.py` 将已证明的执行前拒绝记录为 `failed` 并解释冲突。它保留交接包和调用，不发放重试认领。经核实、用户授权的生效权限变更后，将原保存 `.request.json` 提交给 `prepare_handoff.py`；只有新的 `may_create: true` 才允许一次重试。对于拒绝、超时、未知错误、格式错误的结果，或返回身份与错误混合的结果，助手会记录 `uncertain`；应以原生任务证据核对。不要通过 App Server 备用路径、CLI、其他工具或 UI 绕过审批/访问拒绝。该备用路径仅适用于原生能力确实不可用时。
 
-Official sources, checked 2026-10-02: [permission modes](https://learn.chatgpt.com/docs/permission-modes), [automatic review including MCP tools](https://learn.chatgpt.com/docs/sandboxing/auto-review), and [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference). These establish supported approval mechanisms, not a guarantee that every host or organization permits native task creation. Local sandbox and script checks do not prove a live restricted-mode handoff; report those evidence levels separately.
+官方来源，核查日期 2026-10-02：[权限模式](https://learn.chatgpt.com/docs/permission-modes)、[包含 MCP 工具的自动审核](https://learn.chatgpt.com/docs/sandboxing/auto-review)及[配置参考](https://learn.chatgpt.com/docs/config-file/config-reference)。这些来源确立受支持的审批机制，不保证每个主机或组织都允许原生任务创建。本地沙箱和脚本检查不能证明真实受限模式交接已成功；应分别报告这些证据层级。
 
-## Optional compaction advisory
+## 可选压缩提醒
 
-The core handoff needs no hook or background monitor. Without the optional configuration below, it does not proactively remind the user about compaction. To opt into a best-effort reminder, add an instruction to the user's chosen global/project AGENTS.md, using the real installed script path:
+核心交接不需要 hook 或后台监控。未采用下述可选配置时，它不会主动提醒用户上下文压缩。若选择启用尽力而为的提醒，可在用户选择的全局/项目 AGENTS.md 中加入指令，使用实际安装脚本路径：
 
-> At the first tool-using turn and after recovering from compaction, run `python3 <absolute-skill-dir>/scripts/context_check.py --claim-notice`. Use the actual current task ID; do not select by recency. If `remind` is true, briefly report the observed count and suggest selecting the handoff skill or sending `$handoff`, then continue the substantive work. A reminder never authorizes task creation. Unavailable data must not block work or produce an invented count.
+> 在首次使用工具的轮次，以及从压缩恢复后，运行 `python3 <absolute-skill-dir>/scripts/context_check.py --claim-notice`。使用实际当前任务 ID，不要按最近活跃顺序选择。若 `remind` 为 true，简短报告观察到的次数，并建议选择交接技能或发送 `$handoff`，然后继续实质工作。提醒绝不授权创建任务。数据不可用不得阻碍工作，也不得产生编造的计数。
 
-Default threshold is two observed canonical compaction records, then every additional two. This counts local JSONL records, not context percentage or lost facts. The local transcript format may change. State defaults to `$CODEX_HOME/handoff-state` (or `~/.codex/handoff-state`), stores notice IDs/counts and private scan checkpoints (file identity/version, complete-line offset, prefix/compaction-key hashes; no message text), and can deduplicate a reminder before it is displayed; an interruption may therefore suppress that particular notice. There is no guaranteed background popup. With `--claim-notice` or explicit `--state-dir`, logs below 4 MiB use the direct scan without cache I/O. For larger logs, an exactly unchanged device/inode/size/mtime/ctime version reuses the validated cache after checking both the open file and path again. Any version change still validates the entire previous prefix hash before decoding appended complete lines; replacement, truncation, changed prefixes or invalid cache cause a full scan. Old v1 caches lacking version fields use the original validation path and upgrade safely. Busy/unwritable cache falls back to full scanning; unwritable notice state may repeat a reminder. Plain diagnostics without either option remain read-only.
+默认阈值是观察到两条规范压缩记录，此后每新增两条提醒一次。这统计的是本地 JSONL 记录，不是上下文百分比或丢失事实。本地记录格式可能变化。状态默认保存在 `$CODEX_HOME/handoff-state`（或 `~/.codex/handoff-state`），存储提醒 ID/计数及私有扫描检查点（文件身份/版本、完整行偏移、前缀/压缩键哈希；不含消息文字），可在展示提醒前去重；中断因此可能使该条提醒不再出现。不保证后台弹窗。使用 `--claim-notice` 或显式 `--state-dir` 时，小于 4 MiB 的日志直接扫描，不进行缓存 I/O。对于较大日志，device/inode/size/mtime/ctime 版本完全未变时，在再次检查已打开文件和路径后复用已校验缓存。任何版本变化仍会在解码追加的完整行前，核验整个先前前缀的哈希；文件被替换、截断、前缀变化或缓存无效时，执行完整扫描。缺少版本字段的旧 v1 缓存使用原校验路径，并安全升级。缓存忙碌或不可写时退回完整扫描；提醒状态不可写时，可能重复提醒。未使用这两个选项的普通诊断保持只读。
 
-## Data and removal
+## 数据与移除
 
-History contains full handoff packets, task IDs and file paths. New snapshots and dispatch receipts use private file permissions. Local Python helpers do not contact a network service; Codex's normal model processing is separate. Review project archives before committing them to a public repository. Removing the skill and the optional AGENTS.md instruction disables future use; retain handoff history and notice state unless the user explicitly asks to delete them.
+历史包含完整交接包、任务 ID 和文件路径。新快照和派发收据使用私有文件权限。本地 Python 助手不连接网络服务；Codex 正常模型处理是独立过程。向公开仓库提交项目归档前应检查其内容。移除技能及可选 AGENTS.md 指令会停用后续使用；保留交接历史和提醒状态，除非用户明确要求删除。
 
-## Fast native preparation
+## 快速原生准备
 
-The default native path reads only SKILL.md. `prepare_handoff.py` accepts verified routing metadata plus a sufficient summary on stdin, then publishes packet/history, saves the bound receiver prompt, freezes the immutable request and claims the receipt in one local call. It distinguishes source cwd from destination cwd and returns `create_args` for the native tool. The recommended `--compact` option omits duplicate legacy top-level creation fields from stdout; the default output and Python return keep those fields for existing callers. It never creates a task itself. Where tool orchestration is available, keep preparation, conditional native creation, then parallel result recording/startup snapshot in one orchestration call after the initial project check; do not return to the model solely to parse each helper's output. New receiver prompts inline the necessary context, next action, explicit model/reasoning choices, source path basis and output/archive locations, avoiding a packet-only intake read and preserving later handoff continuity. Tests cover concurrent callers, retries after an uncertain outcome, conflicting input/history, prompt mutation, same-workspace output and retaining long critical summaries without truncation. The receipt protocol remains unchanged. Compatible same-input retries retain a verified bound prompt across renderer upgrades; a new pre-freeze history failure leaves no new prompt/binding, while a saved archive conflict fails without rewriting originals. Identical content stays in place while missing generated indexes can be rebuilt. Local tests do not establish end-to-end model latency.
+默认原生路径只读取 SKILL.md。`prepare_handoff.py` 从 stdin 接收已核实路由元数据和充分摘要，随后在一次本地调用中发布交接包/历史、保存已绑定接收提示、冻结不可变请求并认领收据。它区分来源 cwd 和目的地 cwd，并为原生工具返回 `create_args`。建议使用 `--compact`，从 stdout 省略重复的旧版顶层创建字段；默认输出和 Python 返回仍为现有调用者保留这些字段。它本身绝不创建任务。可用工具编排时，在初次项目核验后，将准备、有条件的原生创建、随后并行的结果记录/启动快照保留在一次编排调用中；不要仅为解析每个助手输出而返回模型。新的接收提示内联必要上下文、下一步、明确模型/推理选择、来源路径基准和输出/归档位置，避免只靠交接包的接收读取，并保留后续交接连续性。测试覆盖并发调用者、不明结果后的重试、输入/历史冲突、提示修改、同工作区输出，以及不截断较长关键摘要。收据协议保持不变。兼容的同输入重试可跨提示生成逻辑升级保留已核验绑定提示；新的冻结前历史失败不留下新提示/绑定，已保存归档冲突则在不重写原件的情况下失败。相同内容保留原位，缺失的生成索引可重建。本地测试不能确立端到端模型延迟。
 
-## Reproducible script checks
+## 可复现脚本检查
 
 ```text
 python3 -m unittest discover -s <absolute-skill-dir>/tests -v
 ```
 
-Tests locate scripts relative to their own files. Fixtures are preserved under the current directory's `work/` by default; set `HANDOFF_TEST_ROOT` to an explicit test-artifact directory if desired. Tests use synthetic data; one subprocess is deliberately killed to verify interrupted snapshot publication. No test creates a Codex task, modifies a real project or makes network calls.
+测试按自身文件位置查找脚本。默认将测试夹具保留在当前目录的 `work/` 下；需要时可用 `HANDOFF_TEST_ROOT` 指定测试工件目录。测试使用合成数据；为验证快照发布中断，会故意终止一个子进程。没有测试会创建 Codex 任务、修改真实项目或发起网络调用。
 
-App Server simulations also cover source model/permission preservation, rejection of mismatched effective settings, approval/input/elicitation/unknown requests, writer release, server/client request-ID collisions, and duplicate-runner prevention. They never grant permissions or create a real task. The fallback retains a writer while its first turn runs; see [app-server-fallback.md](app-server-fallback.md) for desktop availability and recovery limits.
+App Server 模拟也覆盖来源模型/权限保留、实际生效设置不匹配时的拒绝、审批/输入/elicitation/未知请求、写入所有权释放、服务端/客户端请求 ID 冲突，以及防止重复运行者。它们绝不授予权限或创建真实任务。备用路径在首轮运行时持有写入所有权；桌面端可用性和恢复限制见 [app-server-fallback.md](app-server-fallback.md)。
 
-Script tests cover local file/state behavior. Native discovery, live model routing and receiving-task behavior need separate app-level evidence. In particular, a fake adapter's dropped-response test does not emulate all Codex server failures.
+脚本测试覆盖本地文件/状态行为。原生发现、真实模型路由和接收任务行为需要独立的应用级证据。尤其是假适配器丢失响应的测试，不能模拟所有 Codex 服务端失败。
 
-Native-result regressions also cover ready/queued identities, the exact non-interactive approval conflict, ambiguous errors, retained error messages, conflicting identities and stale attempts. App Server simulations verify that `never` is retained in both creation and turn startup, without issuing an approval response. They do not execute a live MCP tool or approve anything.
+原生结果回归也覆盖就绪/排队身份、完全匹配的非交互审批冲突、不明错误、保留的错误消息、冲突身份和过期尝试。App Server 模拟核验创建和轮次启动都保留 `never`，不发出审批响应。它们不执行真实 MCP 工具，也不批准任何操作。
 
 
-## Local routing regression
+## 本地路由回归
 
-Before every creation, read the fresh native Project inventory, including for non-Git directories. `resolve_target.py` plans only `project/local`; it does not register or dispatch a task. Tests cover Git and non-Git Local projects, nested paths, duplicate matches, same-name/other-host projects, title stability and rejection of a different source checkout. A real Git fixture verifies that nested repositories cannot be mistaken for the saved root. A linked checkout outside the saved Local root is rejected rather than reused through another working directory. Test fixtures remain in `work/`.
+每次创建前，读取新鲜的原生 Project 列表，非 Git 目录也一样。`resolve_target.py` 只规划 `project/local`，不会登记或派发任务。测试覆盖 Git 和非 Git Local 项目、嵌套路径、重复匹配、同名/其他主机项目、标题稳定性及拒绝不同来源 checkout。真实 Git 测试夹具核验嵌套仓库不会被误当作已保存根目录。已保存 Local 根目录之外的链接 checkout 会被拒绝，不会通过另一工作目录复用。测试夹具保留在 `work/`。
 
-Local-only continuation is this skill's deliberate scope. There are no directory-mode flags; removed flags fail argument parsing. Tests validate the local plan, while live placement and immediate continuation still require the native task tools and the receiving task's verification.
+仅限本地续做是本技能有意限定的范围。没有目录模式参数；已移除参数会在参数解析时失败。测试验证本地计划，真实位置和立即续做仍需原生任务工具及接收任务核验。
 
-When a historical directory disappears, first recover the current location from fresh project records and the observed workspace as described in destination.md. Validate both an updated same-ID path and the unresolved case where the provider still points only to the missing path; do not bypass checkout checks or register a substitute project during a test. A stale packet's previous blocker is not a current routing result.
+历史目录消失时，先按 destination.md，根据新鲜项目记录和观察到的工作区恢复当前位置。核验同 ID 路径已更新的情况，以及提供方仍仅指向缺失路径而尚未解决的情况；测试时不要绕过 checkout 检查或登记替代项目。过时交接包中的先前阻碍不是当前路由结果。
 
-Regression checks also cover source/destination cwd integration, archive correction before freezing, snapshot symlink boundaries, canonical receipt/worker aliases, absolute RPC deadlines under notifications, model provider identity, explicit empty roots, and compaction cache invalidation. Benchmarks measure local functions with synthetic data; do not claim a model or whole-handoff latency improvement from them.
+回归检查还覆盖来源/目的地 cwd 集成、冻结前归档修正、快照符号链接边界、规范收据/工作进程别名、通知流量下的绝对 RPC 时限、模型提供方身份、显式空根目录及压缩缓存失效。基准使用合成数据测量本地函数；不要据此声称模型或完整交接延迟改善。

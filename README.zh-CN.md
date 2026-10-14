@@ -1,16 +1,14 @@
-# Handoff
+# Handoff 对话交接
 
 **一个指令，换个对话，接着做。**
 
-[English](README.md)
+面向中文 **Codex 桌面端**用户：不想复制粘贴上下文，只想快速换个对话接着做。
 
-面向 **Codex 桌面端**的任务接续 skill。发送 `$handoff`，在同一个已保存的 **Local 项目**创建新对话，把继续工作所需的状态直接交给它；启动后接着做已有授权的下一步。
-
-为长对话和阶段切换设计：减少旧历史的干扰，省去复制摘要、粘贴提示词和再次解释。
+自动在同一个已保存的 **本地（Local）项目**创建新对话，带上必要上下文，继续已有授权的下一步。
 
 ## 使用
 
-在已保存的 Local 项目中，选择 Handoff 技能，或发送：
+在已保存的本地项目中，输入 `@handoff` 或 `@任务交接`，选中 **Codex 任务交接** 技能后发送，即可快速交接。也可以直接发送：
 
 ```text
 $handoff
@@ -24,7 +22,7 @@ $handoff
 
 ## 安装
 
-需要 **macOS Codex 桌面端、Python 3.9+、已保存的 Local 项目**，以及项目写入和原生项目/对话工具权限。
+需要 **macOS Codex 桌面端、Python 3.9+、已保存的本地项目**，以及项目写入和原生项目/对话工具权限。
 
 让 Codex 安装完整的 `handoff/` 目录：
 
@@ -33,14 +31,14 @@ $skill-installer 从 https://github.com/orocoa/codex-handoff/tree/main/handoff �
 如果已有安装，请先备份并更新原目录，避免同名重复安装。
 ```
 
-当前源码为 **alpha.18**，180 项本地回归测试通过；Release 压缩包仍为 alpha.17。以上链接安装 `main` 的源码。
+当前源码为 **alpha.18**，180 项本地回归测试通过；已发布压缩包仍为 alpha.17。以上链接安装 `main` 的源码。
 
 ## 边界
 
-Handoff 也会压缩信息，摘要准确性依赖来源 agent。它让你主动选择何时切换、带走哪些必要状态；新对话不能保证消除偏移。同一问题仍需要连续细节时，可以留在原对话。
+Handoff 也会压缩信息，摘要准确性依赖来源智能体。它让你主动选择何时切换、带走哪些必要状态；新对话不能保证消除偏移。同一问题仍需要连续细节时，可以留在原对话。
 
 快速接续是设计目标，尚未测量真实整次耗时或与同类比较速度。技能不增加独立审批，也不自行改权限；创建失败或结果不明时保留记录、说明实际原因，避免盲目重复创建。
 
 ## 更多
 
-[使用环境与恢复](handoff/references/setup.md) · [更新记录](CHANGELOG.md) · [性能测量](docs/benchmarks.md) · [同类项目](docs/related-work.md) · [MIT](LICENSE)
+[使用环境与恢复](handoff/references/setup.md) · [更新记录](CHANGELOG.md) · [性能测量](docs/benchmarks.md) · [同类项目](docs/related-work.md) · [MIT 许可证](LICENSE)
