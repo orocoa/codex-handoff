@@ -1,44 +1,44 @@
-# Handoff 对话交接
+# Handoff — Codex conversation handoff
 
-**一个指令，换个对话，接着做。**
+**One command. New thread. Keep going.**
 
-面向中文 **Codex 桌面端**用户：不想复制粘贴上下文，只想快速换个对话接着做。
+[简体中文](README.zh-CN.md)
 
-自动在同一个已保存的 **本地（Local）项目**创建新对话，带上必要上下文，继续已有授权的下一步。
+A **macOS Codex desktop** skill for Chinese- and English-speaking users who do not want to copy-paste context: hand work into a fresh chat inside the same saved **Local** project, with the necessary context already packed.
 
-## 使用
+## Usage
 
-在已保存的本地项目中，输入 `@handoff` 或 `@任务交接`，选中 **Codex 任务交接** 技能后发送，即可快速交接。也可以直接发送：
+In a saved local project, type `@handoff` (or the Chinese trigger `@任务交接`), select the **Codex task handoff** skill, and send. Or run:
 
 ```text
 $handoff
 ```
 
-技能核实项目、保存交接记录、创建接续对话，并返回新对话链接及实际启动状态。无需再说“继续”。
+The skill verifies the project, writes a handoff record, opens the continuation thread, and returns the new chat link plus the actual launch status. You do not need to say “continue.”
 
-- 携带目标、最新决定、已完成与待办、必要限制、文件路径和证据。
-- 原文件留在原处；必要上下文直接进入新提示，接收端按业务需要读文件。
-- 仅明确调用时交接；普通提及、编辑或测试技能不创建对话。
+- Carries goals, latest decisions, done / todo, constraints, file paths, and evidence.
+- Original files stay in place; necessary context goes into the new prompt; the receiver reads files as needed.
+- Handoff runs only on explicit invocation — not on casual mentions, edits, or skill tests.
 
-## 安装
+## Install
 
-需要 **macOS Codex 桌面端、Python 3.9+、已保存的本地项目**，以及项目写入和原生项目/对话工具权限。
+Requires **macOS Codex desktop**, **Python 3.9+**, a **saved local project**, plus write access and native project/chat tool permissions.
 
-让 Codex 安装完整的 `handoff/` 目录：
+Ask Codex to install the full `handoff/` directory:
 
 ```text
-$skill-installer 从 https://github.com/orocoa/codex-handoff/tree/main/handoff 安装 handoff。
-如果已有安装，请先备份并更新原目录，避免同名重复安装。
+$skill-installer Install handoff from https://github.com/orocoa/codex-handoff/tree/main/handoff .
+If an install already exists, back it up and update that directory instead of creating a duplicate.
 ```
 
-当前源码为 **alpha.18**，180 项本地回归测试通过；已发布压缩包仍为 alpha.17。以上链接安装 `main` 的源码。
+Current source is **alpha** (see repo `CHANGELOG.md` for the exact build). The link above installs `main`.
 
-## 边界
+## Boundaries
 
-Handoff 也会压缩信息，摘要准确性依赖来源智能体。它让你主动选择何时切换、带走哪些必要状态；新对话不能保证消除偏移。同一问题仍需要连续细节时，可以留在原对话。
+Handoff also compresses information; summary quality depends on the source agent. You choose when to switch and what state to carry; a new thread does not guarantee zero drift. Stay in the original thread when you still need continuous fine detail.
 
-快速接续是设计目标，尚未测量真实整次耗时或与同类比较速度。技能不增加独立审批，也不自行改权限；创建失败或结果不明时保留记录、说明实际原因，避免盲目重复创建。
+Faster continuation is a design goal; wall-clock speed versus alternatives has not been measured. The skill does not add a separate approval layer or change permissions by itself. On create failure or unclear results it keeps records and explains the cause instead of blindly retrying.
 
-## 更多
+## More
 
-[使用环境与恢复](handoff/references/setup.md) · [更新记录](CHANGELOG.md) · [性能测量](docs/benchmarks.md) · [同类项目](docs/related-work.md) · [MIT 许可证](LICENSE)
+[Setup & recovery](handoff/references/setup.md) · [Changelog](CHANGELOG.md) · [Benchmarks](docs/benchmarks.md) · [Related work](docs/related-work.md) · [MIT License](LICENSE)
