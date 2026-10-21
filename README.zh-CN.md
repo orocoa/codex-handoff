@@ -2,6 +2,8 @@
 
 **一个指令，换个对话，接着做。**
 
+[English](README.md)
+
 面向中文 **Codex 桌面端**用户：不想复制粘贴上下文，只想快速换个对话接着做。
 
 自动在同一个已保存的 **本地（Local）项目**创建新对话，带上必要上下文，继续已有授权的下一步。
@@ -31,7 +33,7 @@ $skill-installer 从 https://github.com/orocoa/codex-handoff/tree/main/handoff �
 如果已有安装，请先备份并更新原目录，避免同名重复安装。
 ```
 
-当前源码为 **alpha.18**，180 项本地回归测试通过；已发布压缩包仍为 alpha.17。以上链接安装 `main` 的源码。
+当前源码版本以仓库 [CHANGELOG.md](CHANGELOG.md) 为准；以上链接安装 `main` 的源码。
 
 ## 边界
 
